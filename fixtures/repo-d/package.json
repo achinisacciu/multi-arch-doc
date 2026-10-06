@@ -1,0 +1,11 @@
+{
+  "name": "repo-d",
+  "version": "1.2.0",
+  "dependencies": {
+    "express": "^4.18.0",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}

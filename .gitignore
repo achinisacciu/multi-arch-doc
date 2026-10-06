@@ -1,0 +1,45 @@
+# Dati clienti generati (mai in rete)
+dossier-clienti/
+
+# Output dei tool per-cartella
+tools_output/
+output/
+
+# Documentazione generata su dati reali / snapshot locali (non pubblicare)
+progetti-origine/tool_documentazione_BPMN/canonical.json
+progetti-origine/tool_documentazione_BPMN/analysis/
+progetti-origine/tool_documentazione_BPMN/functional.md
+progetti-origine/tool_documentazione_BPMN/technical.md
+progetti-origine/tool_documentazione_BPMN/metadata.json
+
+# Dati di esempio derivati da sistemi reali (non pubblicare: nomi, namespace, host interni)
+progetti-origine/bpmn/samples/forp/
+progetti-origine/bpmn/samples/SOA/
+
+# Dipendenze e build
+node_modules/
+.vite/
+dist/
+build/
+coverage/
+
+# Cache Python e test
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Env e log
+.env
+.env.local
+*.log
+
+# Backup history dei repo vendored (solo locale, mai in rete)
+.vendor-backup/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

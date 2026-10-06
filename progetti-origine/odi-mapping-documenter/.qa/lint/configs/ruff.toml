@@ -1,0 +1,10 @@
+line-length = 100
+target-version = "py311"
+extend-exclude = ["migrations", "__pycache__", ".venv", ".qa", "output"]
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["E501", "E701", "E741", "B007"]
+
+[lint.per-file-ignores]
+"src/parse_odi_xml.py" = ["F401", "F841"]

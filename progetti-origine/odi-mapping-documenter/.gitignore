@@ -1,0 +1,25 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+venv/
+env/
+
+# Output files (ricreabili dal codice)
+output/*
+!output/.gitkeep
+master-csv/output/
+lp_doc_test/output/
+
+# Test / QA artifacts
+.coverage
+.pytest_cache/
+.qa/**/reports/
+.qa/**/coverage/
+
+# OS generated files
+.DS_Store
+Thumbs.db

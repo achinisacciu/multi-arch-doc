@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture repo-e: mapping A. Dati finti. -->
+<SunopsisExport>
+  <Object class="oracle.odi.domain.mapping.SnpMapping">
+    <Field name="Name">MAP_E_A</Field>
+    <Field name="SourceTable">SALES.ORDERS_E</Field>
+    <Field name="TargetTable">DWH.FACT_E</Field>
+  </Object>
+</SunopsisExport>

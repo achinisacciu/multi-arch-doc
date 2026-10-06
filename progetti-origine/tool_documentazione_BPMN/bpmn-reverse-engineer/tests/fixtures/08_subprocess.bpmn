@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Defs_8" targetNamespace="http://example.com/sub">
+  <process id="Process_Sub" name="SubProcess Test">
+    <startEvent id="Start_1"><outgoing>F1</outgoing></startEvent>
+    <subProcess id="Sub_1" name="Inner Process">
+      <incoming>F1</incoming>
+      <outgoing>F2</outgoing>
+      <startEvent id="Sub_Start"><outgoing>SF1</outgoing></startEvent>
+      <scriptTask id="Script_1" name="Do Script"><incoming>SF1</incoming><outgoing>SF2</outgoing></scriptTask>
+      <endEvent id="Sub_End"><incoming>SF2</incoming></endEvent>
+      <sequenceFlow id="SF1" sourceRef="Sub_Start" targetRef="Script_1"/>
+      <sequenceFlow id="SF2" sourceRef="Script_1" targetRef="Sub_End"/>
+    </subProcess>
+    <endEvent id="End_1"><incoming>F2</incoming></endEvent>
+    <sequenceFlow id="F1" sourceRef="Start_1" targetRef="Sub_1"/>
+    <sequenceFlow id="F2" sourceRef="Sub_1" targetRef="End_1"/>
+  </process>
+</definitions>

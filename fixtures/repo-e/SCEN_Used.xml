@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture repo-e: scenario usato dal LP. Dati finti. -->
+<SunopsisExport>
+  <Object class="oracle.odi.domain.runtime.scenario.SnpScen">
+    <Field name="ScenName">SCEN_USED</Field>
+    <Field name="GlobalId">SCEN-USED-E-001</Field>
+  </Object>
+</SunopsisExport>

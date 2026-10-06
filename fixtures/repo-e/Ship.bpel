@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture repo-e: BPEL minimo con invoke (prova grafo invoke). Dati finti. -->
+<bpel:process xmlns:bpel="http://docs.oasis-open.org/wsbpel/2.0/process/executable"
+  name="ShipBPEL">
+  <bpel:partnerLinks>
+    <bpel:partnerLink name="ShipPL" partnerLinkType="ShipPLT"
+      myRole="Requester" partnerRole="Shipper"/>
+  </bpel:partnerLinks>
+  <bpel:variables>
+    <bpel:variable name="shipIn" messageType="tns:ShipRequest"/>
+  </bpel:variables>
+  <bpel:sequence>
+    <bpel:receive name="RcvShip" partnerLink="ShipPL"
+      operation="startShip" variable="shipIn" createInstance="yes"/>
+    <bpel:invoke name="InvShip" partnerLink="ShipPL"
+      operation="doShip" inputVariable="shipIn"/>
+  </bpel:sequence>
+</bpel:process>

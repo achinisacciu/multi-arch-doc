@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture JCA standalone (T3.1): adapter DB isolato, nessun riferimento a sorelle,
+     porte, tabelle condivise o dipendenze (repo-c resta isolata). -->
+<adapter-config name="OrderDb" adapter="DB Adapter" wsdlLocation="OrderDb.wsdl" xmlns="http://platform.integration.oracle/blocks/adapter/fw/metadata">
+  <connection-factory location="eis/DB/HrConn" UIConnectionName="HrConn" adapterRef=""/>
+  <endpoint-interaction portType="Select_ptt" operation="selectEmployees">
+    <interaction-spec className="oracle.tip.adapter.db.DBPureSQLInteractionSpec">
+      <property name="SqlString" value="SELECT EMP_ID, EMP_NAME FROM HR.EMPLOYEES WHERE DEPT_ID = #DEPT"/>
+      <property name="FetchSize" value="100"/>
+    </interaction-spec>
+  </endpoint-interaction>
+</adapter-config>

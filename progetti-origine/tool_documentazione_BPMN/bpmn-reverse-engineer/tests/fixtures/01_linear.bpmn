@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             id="Definitions_1" targetNamespace="http://example.com/linear">
+  <process id="Process_Linear" name="Linear Process" isExecutable="true">
+    <documentation>Simple linear process for testing</documentation>
+    <startEvent id="StartEvent_1" name="Start">
+      <outgoing>Flow_1</outgoing>
+    </startEvent>
+    <task id="Task_A" name="Task A">
+      <incoming>Flow_1</incoming>
+      <outgoing>Flow_2</outgoing>
+    </task>
+    <endEvent id="EndEvent_1" name="End">
+      <incoming>Flow_2</incoming>
+    </endEvent>
+    <sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_A"/>
+    <sequenceFlow id="Flow_2" sourceRef="Task_A" targetRef="EndEvent_1"/>
+  </process>
+</definitions>

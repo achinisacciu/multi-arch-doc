@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture: contratto WSDL di esempio. -->
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/" name="OrderService" targetNamespace="urn:orders">
+  <portType name="OrderPort">
+    <operation name="getOrder"/>
+    <operation name="createOrder"/>
+  </portType>
+  <service name="OrderService">
+    <port name="OrderPort" binding="tns:OrderBinding"/>
+  </service>
+</definitions>

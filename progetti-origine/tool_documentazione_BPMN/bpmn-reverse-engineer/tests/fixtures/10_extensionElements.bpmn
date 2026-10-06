@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:oracle="http://xmlns.oracle.com/bpm"
+             xmlns:ext="http://example.com/ext"
+             id="Defs_10" targetNamespace="http://example.com/ext">
+  <process id="Process_Ext" name="Extension Test" isExecutable="true">
+    <extensionElements>
+      <oracle:customProperty name="prop1" value="val1"/>
+    </extensionElements>
+    <startEvent id="Start_1"><outgoing>F1</outgoing></startEvent>
+    <serviceTask id="Service_1" name="Call Adapter" implementation="##WebService">
+      <incoming>F1</incoming>
+      <outgoing>F2</outgoing>
+      <extensionElements>
+        <ext:adapter ref="MyJCAAdapter" type="JCA"/>
+        <oracle:binding operation="process" interface="MyInterface"/>
+      </extensionElements>
+      <documentation>Calls JCA adapter</documentation>
+    </serviceTask>
+    <endEvent id="End_1"><incoming>F2</incoming></endEvent>
+    <sequenceFlow id="F1" sourceRef="Start_1" targetRef="Service_1"/>
+    <sequenceFlow id="F2" sourceRef="Service_1" targetRef="End_1"/>
+  </process>
+</definitions>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture: adapter inbound di esempio (avvia il processo su messaggio). -->
+<adapter-config name="AqInbound" adapter="AQ Adapter" wsdlLocation="AqInbound.wsdl">
+  <connection-factory location="eis/AQ/OrdersQueue" UIConnectionName="OrdersQueue"/>
+  <endpoint-activation portType="AqInboundPort" operation="enqueue">
+    <activation-spec className="oracle.tip.adapter.aq.inbound.AQActivationSpec">
+      <property name="DestinationName" value="HR.ORDER_QUEUE"/>
+      <property name="PollingInterval" value="60"/>
+      <property name="MessageSelector" value="PRIORITY &gt; 5"/>
+    </activation-spec>
+  </endpoint-activation>
+</adapter-config>

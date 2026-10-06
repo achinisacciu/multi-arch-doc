@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Client Dossier Studio</title>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo" aria-hidden="true">◈</span> Client&nbsp;Dossier <span class="sub">studio</span></div>
+  <label class="client-field">Cliente
+    <input id="client" type="text" value="clientone" autocomplete="off" spellcheck="false">
+  </label>
+  <span id="backend-status" class="pill is-off" title="stato del backend locale">● offline</span>
+</header>
+
+<nav class="steps" aria-label="fasi">
+  <button id="stepbtn-sources" class="step is-active" type="button"><b>1</b> Sorgenti <span id="count-folders" class="counter">0</span></button>
+  <button id="stepbtn-run" class="step" type="button"><b>2</b> Analisi</button>
+  <button id="stepbtn-results" class="step" type="button"><b>3</b> Risultati <span id="count-edges" class="counter">0</span></button>
+</nav>
+
+<main>
+  <section id="step-sources" class="panel" aria-label="sorgenti">
+    <div id="dropzone-folders" class="dropzone is-clickable" tabindex="0" role="button"
+         aria-label="Trascina qui cartelle o file, oppure clicca per scegliere dal PC">
+      <div class="dz-title">Trascina qui cartelle o file — oppure clicca per scegliere</div>
+      <div class="dz-sub">un solo gesto come un drag&amp;drop semplice: cartelle intere o file sciolti, da qualsiasi punto del PC</div>
+    </div>
+    <div id="folder-cards" class="cards" aria-live="polite"></div>
+    <div class="manual">
+      <button id="btn-pick-native" type="button" class="primary">📂 Scegli dal PC…</button>
+      <input id="manual-path" type="text" placeholder="per repo enormi: path già sul PC, es. C:\progetti\repo-a" spellcheck="false">
+      <button id="btn-add-path" type="button">Aggiungi</button>
+      <button id="btn-browse-server" type="button" class="ghost">Sfoglia sul server…</button>
+      <input id="native-dir-input" type="file" webkitdirectory hidden>
+      <input id="native-file-input" type="file" multiple hidden>
+    </div>
+    <p class="hint">Un solo gesto: <em>trascina</em> cartelle o file qui sopra, oppure <em>clicca</em> la zona
+      per scegliere dal PC. Lettura e invio avvengono da soli con una sola barra di avanzamento
+      sulla card (<q>lettura…</q> poi <q>invio…</q>). Le cartelle grandi viaggiano a pezzi in automatico:
+      l'analisi non va in timeout fino a 10.000 XML. Si scartano solo i binari.
+      Per repo enormi usa path/Sfoglia (niente upload).</p>
+  </section>
+
+  <section id="step-run" class="panel" aria-label="analisi" hidden>
+    <div class="runbar">
+      <button id="btn-run" type="button" class="primary">▶ Analizza cliente</button>
+      <label class="muted" title="VELOCE: inventario + 1 scheda istantanea per ogni file (quali tabelle, quali adapter, quali mapping). Salta i documenti completi. Minuti anche su 10.000 file."><input id="opt-fast" type="radio" name="mode" value="fast" checked> veloce</label>
+      <label class="muted" title="COMPLETA: tutto della veloce + documenti completi per OGNI file (doc ODI TECNICO/BUSINESS/FLUSSO/CSV, LoadPlan, SOA canonical, BPMN analyze). Senza limite di tempo: su 10.000 file può durare ore, con avanzamento nel log."><input id="opt-full" type="radio" name="mode" value="full"> completa</label>
+      <span id="run-status" class="muted">in attesa</span>
+      <span class="spacer"></span>
+      <button id="btn-copy-log" type="button" class="ghost">Copia log</button>
+      <button id="btn-clear-log" type="button" class="ghost">Pulisci</button>
+    </div>
+    <p class="hint" id="mode-hint">Veloce: sai <em>cosa c'è e dove</em> (inventario, schede, indice DB). Completa: in più il <em>dettaglio di ogni file</em> (doc ODI per export, LoadPlan, analisi SOA/BPMN) — stesso indice DB, più ore di calcolo.</p>
+    <pre id="runlog" class="console" aria-live="polite">nessuna analisi ancora.</pre>
+    <details id="cmd-panel">
+      <summary>Comandi CLI equivalenti</summary>
+      <pre id="cmd-collect"></pre>
+      <pre id="cmd-crosslink"></pre>
+      <pre id="cmd-report"></pre>
+    </details>
+  </section>
+
+  <section id="step-results" class="panel" aria-label="risultati" hidden>
+    <div id="dropzone-crosslink" class="dropzone small" tabindex="0"
+         aria-label="Trascina qui un crosslink.json per visualizzarlo">
+      <div class="dz-title">Trascina qui un <code>crosslink.json</code> per visualizzarlo</div>
+      <div class="dz-sub">oppure appare da solo dopo l'analisi</div>
+    </div>
+    <div class="results-actions" style="margin: 16px 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; background: #1e293b; color: #f8fafc; padding: 14px 18px; border-radius: 8px; border: 1px solid #334155;">
+      <div>
+        <b style="font-size: 1.05rem; display: block;">📦 Documentazione Multi-Audience Generata</b>
+        <span class="muted small" style="color: #94a3b8;">Include cartelle autonome per Architetti, Ingegneri, Sviluppatori, DBA, Business PO/PM e Audit/Legale in formato Markdown, CSV e JSON.</span>
+      </div>
+      <button id="btn-download-zip" class="primary" type="button" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 10px 18px; font-size: 0.95rem; cursor: pointer;">
+        <span>📥</span> Scarica Documentazione Completa (.zip)
+      </button>
+    </div>
+    <div id="result-summary" class="chips"></div>
+    <div id="matrix" class="matrix-wrap"></div>
+    <div class="edge-tools">
+      <input id="edge-search" type="text" placeholder="filtra connessioni / prove…" spellcheck="false">
+      <select id="edge-filter" aria-label="filtra per grado">
+        <option value="">tutti i gradi</option>
+        <option value="accertato">✅ accertato</option>
+        <option value="probabile">🔶 probabile</option>
+        <option value="indizio">🔍 indizio</option>
+      </select>
+    </div>
+    <div id="edges"></div>
+  </section>
+</main>
+
+<div id="explorer" class="overlay" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="Sfoglia cartelle sul server">
+    <div class="dlg-head"><b id="explorer-title">Sfoglia cartelle</b> <span id="explorer-for" class="muted"></span></div>
+    <div id="explorer-crumbs" class="crumbs"></div>
+    <div class="dlg-row">
+      <input id="explorer-search" type="text" placeholder="filtra…" spellcheck="false">
+      <button id="explorer-up" type="button" class="ghost">↑ Su</button>
+    </div>
+    <div id="explorer-list" class="explorer-list"></div>
+    <div class="dlg-foot">
+      <span id="explorer-cur" class="muted"></span>
+      <span class="spacer"></span>
+      <button id="explorer-pick" type="button" class="primary">Seleziona</button>
+      <button id="explorer-close" type="button">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "client-dossier-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Frontend minimale (Vite + vanilla JS) per Client Dossier",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}

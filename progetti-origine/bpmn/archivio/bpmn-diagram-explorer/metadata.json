@@ -1,0 +1,6 @@
+{
+  "name": "BPMN Diagram Explorer",
+  "description": "Visualizzazione ed esplorazione interattiva di diagrammi BPMN 2.0 caricati da cartella con esportazione in formato SVG e PDF.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture repo-e: XML ignoto (prova fallback generico). -->
+<customApp>
+  <settings retries="3">
+    <endpoint>https://example.invalid/api</endpoint>
+  </settings>
+  <items>
+    <item id="1">alpha</item>
+    <item id="2">beta</item>
+  </items>
+</customApp>

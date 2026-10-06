@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture S7: stesso target DWH.FACT_ORDERS di MAP_Orders (repo-a) -> dominio comune.
+     Mapping e source diversi, contenuto diverso (niente S8). -->
+<SunopsisExport>
+  <Object class="oracle.odi.domain.mapping.SnpMapping">
+    <Field name="Name">MAP_Ship</Field>
+    <Field name="SourceTable">LOGISTICS.SHIPMENTS</Field>
+    <Field name="TargetTable">DWH.FACT_ORDERS</Field>
+  </Object>
+</SunopsisExport>

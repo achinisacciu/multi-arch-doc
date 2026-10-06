@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture scenario condiviso con repo-a (S9): stesso ScenName, contenuto diverso
+     (GlobalId diverso -> hash diverso -> S9 provato sul nome, non su S8). -->
+<SunopsisExport>
+  <Object class="oracle.odi.domain.runtime.scenario.SnpScen">
+    <Field name="ScenName">SCEN_SHARED</Field>
+    <Field name="GlobalId">SCEN-SHARED-B-001</Field>
+  </Object>
+</SunopsisExport>

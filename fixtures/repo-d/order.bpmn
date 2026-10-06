@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture: processo BPMN di esempio. -->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Defs_1">
+  <bpmn:process id="OrderProcess" name="Gestione Ordini" isExecutable="true">
+    <bpmn:startEvent id="Start_1" name="Ordine ricevuto"/>
+    <bpmn:task id="Task_Approve" name="Approva ordine"/>
+    <bpmn:endEvent id="End_1" name="Ordine chiuso"/>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_1" targetRef="Task_Approve"/>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_Approve" targetRef="End_1"/>
+  </bpmn:process>
+</bpmn:definitions>

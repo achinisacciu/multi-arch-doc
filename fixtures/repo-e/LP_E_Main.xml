@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture repo-e: LP che avvia solo SCEN_USED (SCEN_ORPHAN resta orfano). Dati finti. -->
+<SunopsisExport>
+  <Object class="oracle.odi.domain.runtime.loadplan.SnpLoadPlan">
+    <Field name="LoadPlanName">LP_E_MAIN</Field>
+    <Field name="GlobalId">LP-E-001</Field>
+  </Object>
+  <Object class="oracle.odi.domain.runtime.loadplan.SnpLpStep">
+    <Field name="ILpStep">501</Field>
+    <Field name="LpStepName">STEP_RUN_USED</Field>
+    <Field name="LpStepType">SCENARIO</Field>
+    <Field name="StepOrder">1</Field>
+    <Field name="ParILpStep">null</Field>
+    <Field name="ScenName">SCEN_USED</Field>
+  </Object>
+</SunopsisExport>

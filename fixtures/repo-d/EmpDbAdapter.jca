@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture: adapter DB di esempio (mai dati reali). -->
+<adapter-config name="EmpDbAdapter" adapter="Database Adapter" wsdlLocation="EmpDbAdapter.wsdl">
+  <connection-factory location="eis/DB/HRConnection" UIConnectionName="HRConnection"/>
+  <endpoint-interaction portType="EmpDbPort" operation="selectEmployees">
+    <interaction-spec className="oracle.tip.adapter.db.DBIInteractionSpec">
+      <property name="SqlString" value="SELECT e.EMP_ID, e.LAST_NAME FROM HR.EMPLOYEES e JOIN HR.DEPARTMENTS d ON d.DEPT_ID = e.DEPT_ID"/>
+      <property name="GetActiveUnitOfWork" value="false"/>
+    </interaction-spec>
+  </endpoint-interaction>
+</adapter-config>

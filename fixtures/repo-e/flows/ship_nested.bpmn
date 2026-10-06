@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture repo-e: BPMN in sottocartella (prova --recursive). -->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Defs_E">
+  <bpmn:process id="ShipProcess" name="Spedizione E" isExecutable="true">
+    <bpmn:startEvent id="Start_E" name="Pronto a spedire"/>
+    <bpmn:serviceTask id="Task_Ship" name="Spedisci"/>
+    <bpmn:endEvent id="End_E" name="Spedito"/>
+    <bpmn:sequenceFlow id="F1" sourceRef="Start_E" targetRef="Task_Ship"/>
+    <bpmn:sequenceFlow id="F2" sourceRef="Task_Ship" targetRef="End_E"/>
+  </bpmn:process>
+</bpmn:definitions>

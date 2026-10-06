@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture repo-e: mapping B (secondo file: prova per-ogni-file). Dati finti. -->
+<SunopsisExport>
+  <Object class="oracle.odi.domain.mapping.SnpMapping">
+    <Field name="Name">MAP_E_B</Field>
+    <Field name="SourceTable">SALES.CUSTOMERS_E</Field>
+    <Field name="TargetTable">DWH.DIM_E</Field>
+  </Object>
+</SunopsisExport>

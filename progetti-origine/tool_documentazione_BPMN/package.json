@@ -1,0 +1,48 @@
+{
+  "name": "soa-platform-studio",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "SOA/BPMN Reverse Engineering Platform — single entry frontend (React+Vite) + unified Python backend",
+  "scripts": {
+    "dev": "concurrently -n frontend,backend -c blue,green \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "vite --port=3000 --host=0.0.0.0",
+    "dev:backend": "python soa-reverse-engineer/cli/main.py serve --port 8000",
+    "dev:full": "npm run dev",
+    "build": "vite build",
+    "build:check": "tsc --noEmit && vite build",
+    "preview": "vite preview --port=3000",
+    "serve": "npm run build && python soa-reverse-engineer/cli/main.py serve --port 8000",
+    "serve:prod": "npm run serve",
+    "clean": "rimraf dist",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --skipLibCheck",
+    "platform:scan": "python soa-reverse-engineer/cli/main.py scan",
+    "platform:analyze": "python soa-reverse-engineer/cli/main.py analyze",
+    "bpmn:analyze": "bpmn-reverse-engineer analyze",
+    "bpmn:serve:legacy": "bpmn-reverse-engineer serve --port 8001"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.14",
+    "@vitejs/plugin-react": "^5.0.4",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "vite": "^6.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^10.0.5",
+    "esbuild": "^0.25.0",
+    "rimraf": "^6.1.3",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.3"
+  }
+}

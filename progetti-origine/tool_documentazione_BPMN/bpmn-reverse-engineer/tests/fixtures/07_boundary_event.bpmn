@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             id="Defs_7" targetNamespace="http://example.com/boundary">
+  <process id="Process_Boundary" name="Boundary">
+    <startEvent id="Start_1"><outgoing>F1</outgoing></startEvent>
+    <userTask id="UserTask_1" name="Approve"><incoming>F1</incoming><outgoing>F2</outgoing></userTask>
+    <boundaryEvent id="Boundary_Timer" name="Timeout" attachedToRef="UserTask_1" cancelActivity="true">
+      <outgoing>F3</outgoing>
+      <timerEventDefinition><timeDuration>PT1H</timeDuration></timerEventDefinition>
+    </boundaryEvent>
+    <serviceTask id="Escalate" name="Escalate"><incoming>F3</incoming><outgoing>F4</outgoing></serviceTask>
+    <endEvent id="End_1"><incoming>F2</incoming><incoming>F4</incoming></endEvent>
+    <sequenceFlow id="F1" sourceRef="Start_1" targetRef="UserTask_1"/>
+    <sequenceFlow id="F2" sourceRef="UserTask_1" targetRef="End_1"/>
+    <sequenceFlow id="F3" sourceRef="Boundary_Timer" targetRef="Escalate"/>
+    <sequenceFlow id="F4" sourceRef="Escalate" targetRef="End_1"/>
+  </process>
+</definitions>

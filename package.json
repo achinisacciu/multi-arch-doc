@@ -1,0 +1,11 @@
+{
+  "name": "client-dossier",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Delega alla root: `npm run dev` avvia frontend Vite + backend server.py. Solo prod: python server.py",
+  "scripts": {
+    "dev": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "preview": "npm run preview --prefix frontend"
+  }
+}
