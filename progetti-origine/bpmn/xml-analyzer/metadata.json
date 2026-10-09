@@ -1,4 +1,0 @@
-{
-  "name": "XML Analyzer & Documenter",
-  "description": "Un analizzatore XML generalista che genera documentazione tecnica (report.md) e modello strutturale (schema.json), persistendo i risultati su disco per ogni file analizzato."
-}
