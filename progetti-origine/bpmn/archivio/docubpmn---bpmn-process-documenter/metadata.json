@@ -1,6 +1,0 @@
-{
-  "name": "DocuBPMN - BPMN Process Documenter",
-  "description": "App per l'analisi di file .bpmn e la generazione automatica di documentazione dettagliata, diagramma interattivo e report AI.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
