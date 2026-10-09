@@ -1,0 +1,8 @@
+{
+  "name": "Client Dossier Studio",
+  "description": "Multi-architecture analysis, cross-link discovery, and audience-targeted documentation studio.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -467,24 +467,60 @@ def inventory_folder(root: str, max_files: int = MAX_FILES_PER_REPO) -> dict:
                                 _lp_initiators_from_root(xml_root, _text, rel))
                         except Exception:
                             pass
-                    if "SnpMapping" in sniffed:
+                    all_map_objs = sniffed.get("SnpMapping", []) + sniffed.get("SnpPop", [])
+                    if all_map_objs:
                         maps = []
-                        for fields in sniffed["SnpMapping"]:
+                        for fields in all_map_objs:
+                            m_name = fields.get("Name") or fields.get("PopName") or [os.path.splitext(n)[0]]
+                            srcs = fields.get("SourceTable") or fields.get("SourceDataStore") or []
+                            tgts = fields.get("TargetTable") or fields.get("TargetDataStore") or []
+                            desc = (fields.get("Description") or fields.get("ShortDesc") or [""])[0]
+                            ikm = (fields.get("IKMName") or fields.get("IKM") or [""])[0]
+                            lkm = (fields.get("LKMName") or fields.get("LKM") or [""])[0]
+                            ckm = (fields.get("CKMName") or fields.get("CKM") or [""])[0]
+                            itype = (fields.get("IntegrationType") or [""])[0]
+                            trunc = (fields.get("TruncateTarget") or [""])[0]
+                            stg = (fields.get("StagingArea") or fields.get("ExecutionLocation") or [""])[0]
                             maps.append({
-                                "name": fields.get("Name", [os.path.splitext(n)[0]])[0],
-                                "sources": fields.get("SourceTable", []),
-                                "targets": fields.get("TargetTable", []),
+                                "name": m_name[0],
+                                "sources": srcs,
+                                "targets": tgts,
+                                "description": desc,
+                                "ikm": ikm,
+                                "lkm": lkm,
+                                "ckm": ckm,
+                                "integration_type": itype,
+                                "truncate_target": trunc,
+                                "staging_area": stg,
                             })
                         odi_exports.append({"file": rel, "mappings": maps})
                     if "SnpLoadPlan" in sniffed:
+                        lp_steps = []
+                        if "SnpLpStep" in sniffed:
+                            for st in sniffed["SnpLpStep"]:
+                                lp_steps.append({
+                                    "id": (st.get("ILpStep") or [""])[0],
+                                    "name": (st.get("LpStepName") or ["Step"])[0],
+                                    "type": (st.get("LpStepType") or ["SCENARIO"])[0],
+                                    "order": (st.get("StepOrder") or ["0"])[0],
+                                    "scen_name": (st.get("ScenName") or [""])[0],
+                                    "scen_version": (st.get("ScenVersion") or [""])[0],
+                                    "parent_id": (st.get("ParILpStep") or ["null"])[0],
+                                    "restart_type": (st.get("RestartType") or [""])[0],
+                                    "max_error": (st.get("MaxError") or [""])[0],
+                                })
                         lp_files.append({
                             "file": rel,
                             "loadplan_names": sorted({v for f in sniffed["SnpLoadPlan"] for v in f.get("LoadPlanName", [])}),
+                            "global_ids": sorted({v for f in sniffed["SnpLoadPlan"] for v in f.get("GlobalId", [])}),
+                            "steps": lp_steps,
                         })
                     if "SnpScen" in sniffed:
                         scen_files.append({
                             "file": rel,
                             "scen_names": sorted({v for f in sniffed["SnpScen"] for v in f.get("ScenName", [])}),
+                            "scen_versions": sorted({v for f in sniffed["SnpScen"] for v in f.get("ScenVersion", [])}),
+                            "global_ids": sorted({v for f in sniffed["SnpScen"] for v in f.get("GlobalId", [])}),
                         })
             if ext in (".properties", ".env", ".py", ".xml", ".json", ".yaml", ".yml"):
                 try:

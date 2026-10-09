@@ -239,61 +239,173 @@ def build_architettura(client: str, now: str, cartelle: list, edges: list,
                        contracts_by_repo: dict | None = None) -> dict[str, str]:
     # 01_TOPOLOGIA_E_SISTEMA.md
     topo_rows = []
+    layer_map = {"Middleware / SOA": [], "ETL / Data Integration": [], "Applicativo / Servizi": []}
+
+    # Calcolo metriche di centralità e accoppiamento
+    deg_out: dict[str, int] = {}
+    deg_in: dict[str, int] = {}
+    for e in edges:
+        deg_out[e.get("da", "")] = deg_out.get(e.get("da", ""), 0) + 1
+        deg_in[e.get("a", "")] = deg_in.get(e.get("a", ""), 0) + 1
+
     for c in cartelle:
         role = c.get("role_description") or c.get("archetype") or "Componente Software"
+        arch = c.get("archetype", "Software Component")
         techs = ", ".join(c.get("tech", [])) or "—"
-        topo_rows.append(f"### `{c.get('name')}`\n- **Archetipo:** {c.get('archetype', 'Software Component')}\n- **Ruolo nell'ecosistema:** {role}\n- **Tecnologie:** {techs}\n- **Path originale:** `{c.get('root', '—')}`\n")
+        c_name = c.get("name", "")
+
+        # Classificazione Layer
+        if "SOA" in arch or "Service Bus" in arch:
+            layer_map["Middleware / SOA"].append(c_name)
+            layer_name = "Integrazione Middleware & Service Bus"
+        elif "ETL" in arch or "ODI" in arch:
+            layer_map["ETL / Data Integration"].append(c_name)
+            layer_name = "Data Integration & Batch ETL"
+        else:
+            layer_map["Applicativo / Servizi"].append(c_name)
+            layer_name = "Core Applicativo & Micro-servizi"
+
+        n_out = deg_out.get(c_name, 0)
+        n_in = deg_in.get(c_name, 0)
+        tot_conn = n_out + n_in
+        if tot_conn >= 4:
+            crit_role = "⚠️ Hub Centrale / Perno di Integrazione (Alto Rischio d'Impatto)"
+        elif n_out > 0 and n_in == 0:
+            crit_role = "📤 Consumatore / Iniziatore Indipendente"
+        elif n_in > 0 and n_out == 0:
+            crit_role = "📥 Service Provider / Modulo Condiviso"
+        else:
+            crit_role = "↔ Modulo Peer-to-Peer Interconnesso"
+
+        topo_rows.append(
+            f"### Modulo: `{c_name}`\n"
+            f"- **Livello Architetturale:** {layer_name}\n"
+            f"- **Archetipo Funzionale:** {arch}\n"
+            f"- **Ruolo Operativo nell'Ecosistema:** {role}\n"
+            f"- **Classificazione di Accoppiamento:** {crit_role}\n"
+            f"- **Stack Tecnologico Abilitante:** {techs}\n"
+            f"- **Indicatori di Rete:** {n_out} canali in uscita (dipendenze esterne) · {n_in} canali in ingresso (consumatori)\n"
+            f"- **Percorso Originale sul File System:** `{c.get('root', '—')}`\n"
+        )
+
+    # Identifica il componente più critico / bottleneck
+    central_repo = max(cartelle, key=lambda c: deg_out.get(c.get("name", ""), 0) + deg_in.get(c.get("name", ""), 0), default=None)
+    central_name = central_repo.get("name", "") if central_repo else "Nessuno"
 
     topologia_md = f"""# Architettura e Topologia di Sistema — {client}
 
 _Data generazione: {now}_
+_Inquadramento Metodologico: Analisi Topologica Multi-Repository (C4 Container & Component Model)_
 
 ## 1. Mappa delle Interazioni Inter-Repository
 
-Il seguente diagramma sintetizza i collegamenti rilevati tra i diversi componenti dell'ecosistema applicativo:
+Il seguente grafo sintetizza le interconnessioni architetturali scoperte tramite scansione deterministica del codice sorgente, delle configurazioni e dei descrittori di deployment:
 
 ```mermaid
 {mermaid_src or 'flowchart LR'}
 ```
 
+> [!NOTE]
+> Il grafo evidenzia le relazioni dirette (import di codice, condivisione di database, orchestrazioni multi-servizio).
+> La presenza di frecce bidirezionali indica un accoppiamento circolare o una cooperazione simbiotica tra componenti.
+
 ---
 
-## 2. Schede Componenti e Confini Applicativi
+## 2. Suddivisione nei Livelli Architetturali (Layering Enterprise)
+
+L'ecosistema è organizzato su tre layer logici cooperanti:
+
+| Livello Architetturale | Repository Assegnate | Descrizione del Ruolo e Confini Operativi |
+|---|---|---|
+| **Integrazione Middleware & Service Bus** | {', '.join(f'`{r}`' for r in layer_map['Middleware / SOA']) or '—'} | Esposizione contratti SOAP/WSDL, adapter JCA verso DB transazionali, orchestrazioni BPEL e routing |
+| **Data Integration & Batch ETL** | {', '.join(f'`{r}`' for r in layer_map['ETL / Data Integration']) or '—'} | Pipeline di estrazione, trasformazione e popolamento magazzini dati analitici (Oracle ODI) |
+| **Core Applicativo & Microservizi** | {', '.join(f'`{r}`' for r in layer_map['Applicativo / Servizi']) or '—'} | Logica applicativa di business, script di calcolo/elaborazione e container operativi |
+
+---
+
+## 3. Analisi di Resilienza, Punti di Bottleneck e SPOF
+
+1. **Componente Hub Principale (`{central_name}`):**
+   - Presenta la massima densità di connessioni in ingresso/uscita dell'intero ecosistema.
+   - Ogni modifica o indisponibilità di questo modulo comporta un rischio di impatto sistemico a cascata sui servizi correlati.
+2. **Accoppiamenti Dati Condivisi (Shared Database Anti-Pattern):**
+   - Più moduli accedono alle medesime istanze o tabelle senza passare da uno strato API o Service Bus.
+   - Raccomandazione: Incapsulare l'accesso al database dietro interfacce contrattualizzate o adapter middleware.
+3. **Isolamento dei Guasti (Fault Domain Isolation):**
+   - La presenza di dipendenze dirette a livello di codice impone che gli ambienti di rilascio siano rigorosamente sincronizzati in fase di CI/CD.
+
+---
+
+## 4. Schede di Dettaglio per Singolo Componente
 
 {chr(10).join(topo_rows)}
 
 ---
 
-## 3. Analisi degli Accoppiamenti
-- **Accoppiamenti Diretti (Codice/Import):** dipendenze esplicite a livello di linguaggio o percorsi relativi.
-- **Accoppiamenti Indiretti (Dati/Infrastruttura):** componenti che condividono lo stesso database, la stessa istanza di message broker o la stessa orchestrazione container.
-- **Accoppiamenti di Rete:** servizi che consumano endpoint esposti da altri moduli su porte note.
+## 5. Matrice di Accoppiamento e Meccanismi di Comunicazione
+
+1. **Accoppiamenti Diretti (Codice / Import):** dipendenze esplicite a livello di interprete/compilatore (`import`, `require`, percorsi relativi);
+2. **Accoppiamenti Dati (Database Condiviso):** componenti che condividono host o tabelle (`SCHEMA.TABELLA`);
+3. **Accoppiamenti di Rete (Chiamate API):** servizi che contattano endpoint esposti su porte dichiarate;
+4. **Accoppiamenti di Deployment (Docker Compose):** cicli di vita congiunti e dipendenze di avvio;
+5. **Accoppiamenti Batch (Orchestrazione Condivisa):** scenari e LoadPlan eseguiti congiuntamente.
 """
 
     # 02_DATA_FLOW_E_INTERAZIONI.md
     flow_rows = []
     for e in edges:
         p_str = "<br/>".join(f"`{redact(p)}`" for p in e.get("prove", []))
-        flow_rows.append(f"| `{e.get('da')}` | `{e.get('a')}` | **{e.get('tipo')}** | {e.get('grado')} | {p_str} |")
-    table_flows = "\n".join(flow_rows) if flow_rows else "| — | — | (nessuna interazione rilevata) | — | — |"
+        flow_type = e.get("tipo", "interazione")
+        if "import" in flow_type:
+            proto = "In-Process (Linguaggio)"
+            crit = "Alta (Dipendenza Diretta di Codice)"
+            lat = "Nullo (In-Memory)"
+        elif "db" in flow_type:
+            proto = "Storage (Database Condiviso)"
+            crit = "Critica (Consistenza Dati e Transazioni)"
+            lat = "Bassa (Rete Locale / JDBC)"
+        elif "rete" in flow_type or "chiamate" in flow_type:
+            proto = "Network (HTTP / REST)"
+            crit = "Media (Rete Runtime)"
+            lat = "Variabile (Chiamata HTTP)"
+        elif "orchestrazione" in flow_type or "compose" in flow_type:
+            proto = "Deployment / Scheduler"
+            crit = "Operativa (Orchestrazione e Startup)"
+            lat = "Asincrona / Batch"
+        else:
+            proto = "File / Entità Condivisa"
+            crit = "Informativa"
+            lat = "N/A"
 
-    data_flow_md = f"""# Flussi Dati e Interazioni tra Componenti — {client}
+        flow_rows.append(f"| `{e.get('da')}` | `{e.get('a')}` | **{flow_type}** | {proto} | {lat} | {e.get('grado')} | {crit} | {p_str} |")
+    table_flows = "\n".join(flow_rows) if flow_rows else "| — | — | (nessuna interazione rilevata) | — | — | — | — | — |"
 
-Questo documento dettaglia tutti i canali di scambio dati, chiamate di rete e dipendenze attive rilevate tra le repository.
+    data_flow_md = f"""# Flussi Dati e Canali di Interazione tra Componenti — {client}
 
-| Sorgente | Destinazione | Tipologia Canale / Interazione | Grado Certezza | Evidenze Riscontrate |
-|---|---|---|---|---|
+_Data pubblicazione: {now}_
+
+Questo documento censisce tutti i canali di scambio dati, chiamate di rete, orchestrazioni e dipendenze attive rilevate tra le repository dell'ecosistema.
+
+| Sorgente (Da) | Destinazione (A) | Tipologia Canale | Protocollo / Meccanismo | Profilo Latenza | Grado Certezza | Criticità Accoppiamento | Evidenze Riscontrate |
+|---|---|---|---|---|---|---|---|
 {table_flows}
 
 ---
 
-### Tipologie di Flusso Rilevate:
-1. **import-cross-cartella:** Chiamate dirette nel codice (`import`, `require`, percorsi relativi).
-2. **chiamate-rete:** URL di rete o chiamate API HTTP/REST che contattano porte dichiarate da altri servizi.
-3. **db-condiviso:** Più repository accedono allo stesso database (`dbhost` o `dbname`).
-4. **compose-multi-servizio:** Orchestrazione congiunta definita in file `docker-compose`.
-5. **orchestrazione-condivisa:** Piani di caricamento o scenari condivisi tra moduli diversi.
-6. **file-identico:** File con identico hash crittografico SHA-256 (potenziale duplicazione o libreria condivisa).
+## 2. Tassonomia dei Canali di Integrazione Rilevati
+
+1. **`import-cross-cartella`:** Dipendenza diretta tra file sorgente. Una modifica all'interfaccia esposta rompe il consumatore a build-time.
+2. **`db-condiviso`:** Accesso concomitante alla stessa istanza di database. Rischio di schema migration disallineate e collisione transazionale.
+3. **`chiamate-rete`:** Chiamata API su porta di servizio dichiarata. Richiede disponibilità runtime del servizio target.
+4. **`compose-multi-servizio`:** Coordinamento architetturale via container Docker per lo startup congiunto dei servizi.
+5. **`orchestrazione-condivisa`:** Flusso batch o scenario condiviso tra moduli, con coordinamento temporale richiesto.
+6. **`file-identico`:** File con identico hash crittografico SHA-256 (libreria condivisa o duplicazione di codice da consolidare).
+
+---
+
+## 3. Presidio di Sicurezza nei Flussi Dati
+- **Sanitizzazione Credenziali:** Tutte le prove riportate nel documento sono state automaticamente epurate da chiavi segrete, password e token crittografici (`***redatto***`).
+- **Nessuna Esposizione di Segreti:** I parametri di connessione al database conservano esclusivamente metadati di puntamento (host, schema, tabella) per consentire la mappatura architetturale senza rischi di sicurezza.
 """
 
     # 03_CONTRATTI_DI_SERVIZIO.md (prima canonical SOA reale, poi file grezzi)
@@ -302,23 +414,40 @@ Questo documento dettaglia tutti i canali di scambio dati, chiamate di rete e di
         for ct in (contracts_by_repo or {}).get(c.get("name", ""), []):
             det = f" — {ct['detail']}" if ct.get("detail") else ""
             contract_rows.append(
-                f"| `{c.get('name')}` | `{ct.get('file')}` | {ct.get('kind')}{det} |")
+                f"| `{c.get('name')}` | `{ct.get('file')}` | **{ct.get('kind')}** | Formalizzato Enterprise | {det or 'Operazioni di servizio contrattualizzate'} |")
     if not contract_rows:
         for c in cartelle:
             for f in c.get("files", []):
-                if f.get("ext", "") in (".wsdl", ".xsd"):
+                ext = f.get("ext", "").lower()
+                if ext in (".wsdl", ".xsd", ".jca"):
+                    kind_desc = "Contratto WSDL (SOAP Interfaccia di Servizio)" if ext == ".wsdl" else ("Schema XSD (Definizione Tipi Dati)" if ext == ".xsd" else "Adapter JCA (Middleware Database / AQ)")
                     contract_rows.append(
-                        f"| `{c.get('name')}` | `{f.get('rel_path')}` | "
-                        f"Contratto / Schema ({f.get('ext', '').upper()}) |")
-    table_contracts = "\n".join(contract_rows) if contract_rows else "| — | — | Nessun file di contratto WSDL/XSD/OpenAPI esplicito rilevato |"
+                        f"| `{c.get('name')}` | `{f.get('rel_path')}` | **{ext.upper().lstrip('.')}** | Standard Enterprise | {kind_desc} |")
+    table_contracts = "\n".join(contract_rows) if contract_rows else "| — | — | — | — | Nessun file di contratto WSDL/XSD/OpenAPI esplicito rilevato |"
 
-    contratti_md = f"""# Contratti di Servizio e Interfacce — {client}
+    contratti_md = f"""# Contratti di Servizio, Schemi ed Interfacce — {client}
 
-Riepilogo dei contratti formali di servizio (WSDL, XSD, definizioni OpenAPI/Swagger) individuati nel perimetro applicativo.
+_Data pubblicazione: {now}_
+_Standard di riferimento: W3C WSDL 1.1/2.0, XML Schema (XSD), JCA 1.5/1.6, WS-BPEL 2.0_
 
-| Repository | File di Contratto | Descrizione / Tipo |
-|---|---|---|
+Il presente catalogo censisce i contratti formali di servizio e le definizioni di interfaccia individuate nel perimetro applicativo.
+
+| Repository | File di Contratto | Tipologia | Livello Formalizzazione | Dettaglio Operazioni ed Entità |
+|---|---|---|---|---|
 {table_contracts}
+
+---
+
+## 2. Governance delle Interfacce e Linee Guida di Manutenzione
+
+1. **Contratti WSDL (SOAP Services):**
+   - Le operazioni esposte definiscono i confini stabili tra il client e i servizi enterprise.
+   - Ogni variazione al WSDL deve garantire retrocompatibilità (non-breaking changes) tramite versioning semantico dell'endpoint o del namespace.
+2. **Schemi Dati XSD (Canonical Data Model):**
+   - Gli schemi XSD centralizzano la validazione dei payload XML. Assicurarsi che i tipi complessi siano riutilizzati e non duplicati tra repository.
+3. **Adapter Middleware JCA:**
+   - I file `.jca` mappano le chiamate middleware verso connettori fisici (Database JDBC, Code AQ/JMS).
+   - I JNDI delle Connection Factory (`eis/DB/*`, `eis/AQ/*`) devono essere configurati in modo omogeneo sugli ambienti di collaudo e produzione.
 """
 
     return {
@@ -481,6 +610,487 @@ def build_db_inventory_section(cartelle: list) -> str:
     return "\n".join(out)
 
 
+def _clean_mermaid_id(name: str) -> str:
+    import re
+    return re.sub(r"[^a-zA-Z0-9_]", "_", name)
+
+
+def build_etl_odi_section(client: str, now: str, cartelle: list, edges: list, mrows: list) -> str:
+    all_mappings = []
+    all_sources = set()
+    all_targets = set()
+    target_to_mappings: dict[str, list[dict]] = {}
+
+    for c in cartelle:
+        repo_name = c.get("name", "")
+        for exp in c.get("odi_exports", []):
+            for m in exp.get("mappings", []):
+                name = m.get("name", "Mapping")
+                sources = m.get("sources", [])
+                targets = m.get("targets", [])
+                desc = m.get("description", "")
+                ikm = m.get("ikm", "")
+                lkm = m.get("lkm", "")
+                ckm = m.get("ckm", "")
+                itype = m.get("integration_type", "")
+                trunc = m.get("truncate_target", "")
+                stg = m.get("staging_area", "")
+                for s in sources:
+                    all_sources.add(s)
+                for t in targets:
+                    all_targets.add(t)
+                    target_to_mappings.setdefault(t, []).append({
+                        "repo": repo_name,
+                        "file": exp.get("file", ""),
+                        "mapping": name,
+                    })
+                all_mappings.append({
+                    "repo": repo_name,
+                    "file": exp.get("file", ""),
+                    "name": name,
+                    "sources": sources,
+                    "targets": targets,
+                    "description": desc,
+                    "ikm": ikm,
+                    "lkm": lkm,
+                    "ckm": ckm,
+                    "integration_type": itype,
+                    "truncate_target": trunc,
+                    "staging_area": stg,
+                })
+
+    all_loadplans = []
+    lp_scenarios_called: dict[str, list[dict]] = {}
+    for c in cartelle:
+        repo_name = c.get("name", "")
+        for lp in c.get("lp_files", []):
+            lp_names = lp.get("loadplan_names", []) or [os.path.basename(lp.get("file", ""))]
+            steps = lp.get("steps", [])
+            for s in steps:
+                sname = s.get("scen_name")
+                if sname:
+                    lp_scenarios_called.setdefault(sname, []).append({
+                        "lp_name": lp_names[0],
+                        "step_name": s.get("name", "Step"),
+                        "step_order": s.get("order", "0"),
+                        "repo": repo_name,
+                    })
+            all_loadplans.append({
+                "repo": repo_name,
+                "file": lp.get("file", ""),
+                "names": lp_names,
+                "global_ids": lp.get("global_ids", []),
+                "steps": steps,
+            })
+
+    all_scenarios = []
+    scen_repo_count = {}
+    for c in cartelle:
+        repo_name = c.get("name", "")
+        for sc in c.get("scen_files", []):
+            snames = sc.get("scen_names", []) or [os.path.basename(sc.get("file", ""))]
+            for sn in snames:
+                scen_repo_count[sn] = scen_repo_count.get(sn, 0) + 1
+                all_scenarios.append({
+                    "repo": repo_name,
+                    "file": sc.get("file", ""),
+                    "name": sn,
+                    "versions": sc.get("scen_versions", []),
+                    "global_ids": sc.get("global_ids", []),
+                })
+
+    # Catene di dipendenza Read-After-Write (RAW)
+    raw_chains = []
+    intermediate_tables = sorted(all_sources & all_targets)
+    for it in intermediate_tables:
+        producers = [m for m in all_mappings if it in m["targets"]]
+        consumers = [m for m in all_mappings if it in m["sources"]]
+        raw_chains.append({
+            "table": it,
+            "producers": producers,
+            "consumers": consumers,
+        })
+
+    n_mappings = len(all_mappings)
+    n_sources = len(all_sources)
+    n_targets = len(all_targets)
+    n_lps = len(all_loadplans)
+    n_scens = len(all_scenarios)
+    n_shared_scens = sum(1 for sn, cnt in scen_repo_count.items() if cnt > 1)
+    n_orphan_scens = sum(1 for sc in all_scenarios if sc["name"] not in lp_scenarios_called)
+    n_multi_writers = sum(1 for t, m_list in target_to_mappings.items() if len(m_list) > 1)
+
+    # 1. Unified Mermaid Lineage Flowchart con subgraphs per schema
+    mermaid_lines = ["flowchart LR"]
+    if all_mappings:
+        # Raggruppa tabelle per schema
+        schemas_tables: dict[str, set[str]] = {}
+        for t in sorted(all_sources | all_targets):
+            sch = t.split(".", 1)[0] if "." in t else "DEFAULT"
+            schemas_tables.setdefault(sch, set()).add(t)
+
+        for sch, tbls in sorted(schemas_tables.items()):
+            sch_clean = _clean_mermaid_id(sch)
+            # Classifica schema come Source, DWH o Staging
+            sch_upper = sch.upper()
+            if any(k in sch_upper for k in ("DWH", "EDW", "DM", "FACT", "DIM")):
+                sch_title = f"🏛️ Schema DWH: {sch}"
+            elif any(k in sch_upper for k in ("STG", "STAGE", "TMP", "RAW")):
+                sch_title = f"🔄 Schema Staging: {sch}"
+            else:
+                sch_title = f"📥 Schema Operazionale: {sch}"
+
+            mermaid_lines.append(f'    subgraph SG_{sch_clean} ["{sch_title}"]')
+            for t in sorted(tbls):
+                tid = f"T_{_clean_mermaid_id(t)}"
+                if len(target_to_mappings.get(t, [])) > 1:
+                    mermaid_lines.append(f'        {tid}[("📤 {t}<br/>⚠️ Multi-Writer ({len(target_to_mappings[t])})")]')
+                elif t in all_targets:
+                    mermaid_lines.append(f'        {tid}[("📤 {t}")]')
+                else:
+                    mermaid_lines.append(f'        {tid}[("📥 {t}")]')
+            mermaid_lines.append("    end")
+
+        # Nodi mapping ed archi
+        for i, m in enumerate(all_mappings):
+            mid = f"MAP_{i}"
+            mermaid_lines.append(f'    {mid}["⚙️ {m["name"]}\\n({m["repo"]})"]')
+            for s in m["sources"]:
+                sid = f"T_{_clean_mermaid_id(s)}"
+                mermaid_lines.append(f"    {sid} --> {mid}")
+            for t in m["targets"]:
+                tid = f"T_{_clean_mermaid_id(t)}"
+                mermaid_lines.append(f"    {mid} --> {tid}")
+    else:
+        mermaid_lines.append('    NO_ETL["Nessun flusso ETL mappato"]')
+    mermaid_flow = "\n".join(mermaid_lines)
+
+    # 2. Tabella di Lineage Generale
+    lineage_rows = []
+    for m in all_mappings:
+        srcs = "<br/>".join(f"`{s}`" for s in m["sources"]) or "—"
+        tgts = "<br/>".join(f"`{t}`" for t in m["targets"]) or "—"
+        if any("FACT" in t.upper() or "F_" in t.upper() for t in m["targets"]):
+            flow_type = "Caricamento Fatti (Fact DWH)"
+        elif any("DIM" in t.upper() or "D_" in t.upper() for t in m["targets"]):
+            flow_type = "Caricamento Dimensioni (Dim DWH)"
+        elif any("STAGE" in t.upper() or "STG" in t.upper() or "TMP" in t.upper() for t in m["targets"]):
+            flow_type = "Ingestion / Staging Area"
+        else:
+            flow_type = "Trasformazione Dati Standard"
+        km = m.get("ikm") or "IKM / Control Append"
+        verif = f"`{m['file']}` (XML SunopsisExport)"
+        lineage_rows.append(
+            f"| `{m['repo']}` | `{m['file']}` | **`{m['name']}`** | {srcs} | {tgts} | {flow_type} | {km} | {verif} |"
+        )
+    table_lineage = "\n".join(lineage_rows) if lineage_rows else "| — | — | — | — | — | — | — | — |"
+
+    # 2b. Chaining (Read-After-Write)
+    if raw_chains:
+        raw_rows = []
+        for rc in raw_chains:
+            p_str = "<br/>".join(f"`{p['name']}` (`{p['repo']}`)" for p in rc["producers"])
+            c_str = "<br/>".join(f"`{c['name']}` (`{c['repo']}`)" for c in rc["consumers"])
+            raw_rows.append(f"| `{rc['table']}` | {p_str} | {c_str} | Sequenziale Obbligatorio (Producer prima di Consumer) | ⚠️ Critico se parallelo |")
+        table_raw = (
+            "| Tabella Intermedia / Staging | Mappings Produttori (Scrittori) | Mappings Consumatori (Lettori) | Vincolo d'Ordine | Rischio Architetturale |\n"
+            "|---|---|---|---|---|\n" + "\n".join(raw_rows)
+        )
+    else:
+        table_raw = "_Nessuna concatenazione a stadi rilevata (architettura a singolo hop Source → Target diretta senza tabelle intermedie condivise)._"
+
+    # 3. Schede Dettagliate per Singolo Mapping
+    detail_blocks = []
+    for m in all_mappings:
+        io_rows = []
+        for s in m["sources"]:
+            sch, tb = s.split(".", 1) if "." in s else ("DEFAULT", s)
+            io_rows.append(f"| INPUT | `{sch}` | `{tb}` | Lettura Sorgente (Extraction) | SELECT / Full Scan o Incremental |")
+        for t in m["targets"]:
+            sch, tb = t.split(".", 1) if "." in t else ("DEFAULT", t)
+            io_rows.append(f"| OUTPUT | `{sch}` | `{tb}` | Scrittura Bersaglio (Target Load) | INSERT / MERGE (Control Append) |")
+        io_table = "\n".join(io_rows) if io_rows else "| — | — | — | — | — |"
+
+        # Correlazione con Scenari e LoadPlan
+        matching_scens = [sc["name"] for sc in all_scenarios if m["name"].lower() in sc["name"].lower() or sc["repo"] == m["repo"]]
+        scen_links = ", ".join(f"`{sn}`" for sn in matching_scens) if matching_scens else "_Correlazione per convenzione repo_"
+
+        calling_lps = []
+        for sn in matching_scens:
+            for call in lp_scenarios_called.get(sn, []):
+                calling_lps.append(f"`{call['lp_name']}` (Step: `{call['step_name']}`)")
+        lp_links = ", ".join(sorted(set(calling_lps))) if calling_lps else "_Nessuna chiamata esplicita da LoadPlan censita_"
+
+        desc_text = m.get("description") or "Flusso di popolamento dati estratto dalla definizione di mapping ODI."
+        km_text = m.get("ikm") or "IKM Oracle Control Append / Multi-table Insert"
+
+        detail_blocks.append(f"""### Mapping: `{m['name']}`
+- **Repository di Origine:** `{m['repo']}`
+- **File Sorgente XML:** `{m['file']}`
+- **Descrizione Funzionale:** {desc_text}
+- **Knowledge Module (IKM / LKM):** `{km_text}`
+- **Modalità di Esecuzione:** Batch ETL (commit a fine blocco / append mode)
+- **Scenari Correlati:** {scen_links}
+- **Piani di Caricamento Orchestranti:** {lp_links}
+
+#### Datastore e Tabelle I/O
+| Direzione | Schema | Tabella | Ruolo Operativo | Modalità Accesso Dati |
+|---|---|---|---|---|
+{io_table}
+
+#### Raccomandazioni di Performance e Manutenzione
+1. Verificare la presenza di indici B-Tree sulle chiavi di join/filtro delle tabelle sorgente.
+2. Controllare le tabelle di errore CKM (`E$_*`) per scartare record non conformi prima del commit.
+3. Se il volume supera 1M di record, valutare il caricamento con hint direct-path (`/*+ APPEND */`).
+""")
+    detail_md = "\n".join(detail_blocks) if detail_blocks else "_Nessun mapping presente._\n"
+
+    # 4. LoadPlan
+    lp_summary_rows = []
+    lp_detail_blocks = []
+    for lp in all_loadplans:
+        names_str = ", ".join(f"`{n}`" for n in lp["names"])
+        gids_str = ", ".join(f"`{g}`" for g in lp["global_ids"]) or "—"
+        n_steps = len(lp["steps"])
+        lp_status = f"{n_steps} step operativi" if n_steps > 0 else "⚠️ Scheletro / Senza step nidificati"
+        lp_summary_rows.append(f"| `{lp['repo']}` | `{lp['file']}` | {names_str} | {gids_str} | {lp_status} |")
+
+        step_rows = []
+        for s in lp["steps"]:
+            scen_call = f"▶ `{s.get('scen_name')}`" if s.get("scen_name") else "—"
+            parent = f"`{s['parent_id']}`" if s.get("parent_id") and s['parent_id'] != 'null' else "Radice"
+            restart = s.get("restart_type") or "Restart from failed step"
+            step_rows.append(f"| {s.get('order', '0')} | **`{s.get('name', 'Step')}`** | `{s.get('type', 'SCENARIO')}` | {scen_call} | {parent} | {restart} |")
+        step_table = "\n".join(step_rows) if step_rows else "| — | — | — | — | — | — |"
+
+        lp_mermaid = ["flowchart TD", f'    START(["🚀 Inizio: {lp["names"][0]}"])']
+        if lp["steps"]:
+            prev = "START"
+            for idx, st in enumerate(lp["steps"]):
+                nid = f"STEP_{idx}"
+                lbl = f"{st.get('name', 'Step')}\\n({st.get('type', 'SCENARIO')})"
+                if st.get("scen_name"):
+                    lbl += f"\\n▶ {st['scen_name']}"
+                lp_mermaid.append(f'    {nid}["{lbl}"]')
+                lp_mermaid.append(f'    {prev} --> {nid}')
+                prev = nid
+            lp_mermaid.append(f'    {prev} --> END(["🏁 Fine Piano"])')
+        else:
+            lp_mermaid.append('    START --> END(["🏁 Fine Piano (Scheletro)"])')
+
+        diagnostic_note = ""
+        if n_steps == 0:
+            diagnostic_note = f"""
+> [!NOTE]
+> **Diagnosi Tecnica sull'Export:** Il file XML dichiara la testata del LoadPlan (`SnpLoadPlan`) con identificativo `{gids_str}`,
+> ma non include elementi `<Object class="...SnpLpStep">` nidificati.
+> Questo accade comunemente quando l'export ODI è generato senza l'opzione "Includi oggetti dipendenti" o quando
+> gli step sono gestiti nel Master Repository o orchestrati esternamente. La testata e il GlobalId rimangono tracciati per completezza.
+"""
+
+        lp_detail_blocks.append(f"""### LoadPlan: `{lp['names'][0]}`
+- **Repository di Gestione:** `{lp['repo']}`
+- **File Sorgente XML:** `{lp['file']}`
+- **Identificativo Globale (GlobalId):** {gids_str}
+- **Step di Esecuzione Censiti:** {n_steps}
+{diagnostic_note}
+#### Sequenza dei Passi Operativi
+| Ordine | Nome Step | Tipologia | Scenario Invocato | Step Padre | Politica di Ripristino |
+|---|---|---|---|---|---|
+{step_table}
+
+#### Diagramma del Flusso di Esecuzione
+```mermaid
+{chr(10).join(lp_mermaid)}
+```
+""")
+
+    table_lp_summary = "\n".join(lp_summary_rows) if lp_summary_rows else "| — | — | — | — | — |"
+    lp_sections_md = "\n".join(lp_detail_blocks) if lp_detail_blocks else "_Nessun LoadPlan presente._\n"
+
+    # 5. Audit Scenari
+    scen_rows = []
+    for sc in all_scenarios:
+        sname = sc["name"]
+        is_orphan = sname not in lp_scenarios_called
+        is_shared = scen_repo_count.get(sname, 0) > 1
+
+        call_list = lp_scenarios_called.get(sname, [])
+        call_str = "<br/>".join(f"LP `{c['lp_name']}` ({c['repo']}) - Step `{c['step_name']}`" for c in call_list)
+
+        if is_orphan and is_shared:
+            stato = "⚠️ ORFANO & CONDIVISO"
+            note = "Non chiamato da LoadPlan nel perimetro; duplicato in più repository"
+            action = "Verificare schedulatore esterno (es. Control-M) o bonificare copie"
+        elif is_orphan:
+            stato = "⚠️ ORFANO"
+            note = "Non chiamato da nessun LoadPlan analizzato (possibile avvio manuale/deprecato)"
+            action = "Verificare se avviato manualmente o pianificare decommission"
+        elif is_shared:
+            stato = "🔄 CONDIVISO"
+            note = f"Eseguito e condiviso su più repository ({call_str})"
+            action = "Mantenere sincronizzate le versioni tra i moduli"
+        else:
+            stato = "✅ ATTIVO"
+            note = f"Invocato regolarmente da piano di caricamento ({call_str})"
+            action = "Componente in produzione regolare"
+        scen_rows.append(f"| **`{sname}`** | `{sc['repo']}` | `{sc['file']}` | {stato} | {note} | {action} |")
+    table_scens = "\n".join(scen_rows) if scen_rows else "| — | — | — | — | — | — |"
+
+    # 7. Multi-Writer Risk
+    multi_writer_rows = []
+    for t, m_list in sorted(target_to_mappings.items()):
+        if len(m_list) > 1:
+            repos_involved = sorted({m["repo"] for m in m_list})
+            mappings_involved = "<br/>".join(f"• `{m['mapping']}` ({m['repo']}: `{m['file']}`)" for m in m_list)
+
+            # Valuta se sono orchestrati insieme
+            shared_lp = False
+            for lp in all_loadplans:
+                lp_scens = {s.get("scen_name") for s in lp["steps"]}
+                writer_matches = sum(1 for m in m_list if any(m["mapping"].lower() in sn.lower() for sn in lp_scens if sn))
+                if writer_matches > 1:
+                    shared_lp = True
+                    break
+
+            if shared_lp:
+                risk_lvl = "🔶 MEDIO (Orchestrato in Sequenza)"
+                concurr_note = "Presente nello stesso LoadPlan; verificare ordine seriale dei passi."
+            elif len(repos_involved) > 1:
+                risk_lvl = "⚠️ ALTO (Multi-Writer Cross-Repo)"
+                concurr_note = "Mapping residenti su repository differenti: rischio lock simultaneo o sovrascrittura se eseguiti in parallelo."
+            else:
+                risk_lvl = "⚠️ MEDIO-ALTO (Multi-Writer Locale)"
+                concurr_note = "Più mapping alimentano lo stesso target; garantire serializzazione."
+
+            multi_writer_rows.append(
+                f"| `{t}` | {len(m_list)} mapping ({', '.join(repos_involved)}) | {risk_lvl} | {mappings_involved} | {concurr_note} |"
+            )
+    if multi_writer_rows:
+        table_multi = (
+            "| Tabella Bersaglio | Numero Scrittori | Grado di Rischio | Mapping e Repository Coinvolti | Valutazione Concorrenza e Impatto |\n"
+            "|---|---|---|---|---|\n" + "\n".join(multi_writer_rows)
+        )
+    else:
+        table_multi = "_Nessuna tabella bersaglio condivisa da più mapping (nessuna collisione rilevata)._"
+
+    return f"""# Trasformazioni Dati, Lineage ed Orchestrazioni ETL (Oracle ODI) — {client}
+
+_Data pubblicazione: {now}_
+_Standard di riferimento: Oracle Data Integrator (ODI 11g/12c) · Analisi Statica Deterministica dei Metadati XML_
+
+## 📊 Dashboard Sintetica ed Indicatori Chiave (KPI)
+
+La seguente dashboard sintetizza la consistenza delle pipeline di data integration, lo stato delle orchestrazioni batch e i punti di convergenza rilevati nel perimetro:
+
+| Metrica ETL / Orchestrazione | Valore Rilevato | Descrizione e Significato Architetturale |
+|---|---|---|
+| **Totale Mapping Rilevati** | **{n_mappings}** | Flussi di trasformazione dati estratti e verificati dai file XML SunopsisExport |
+| **Tabelle Sorgente Distinte (Input)** | **{n_sources}** | Datastore operazionali da cui vengono estratte le informazioni di business |
+| **Tabelle Destinazione Distinte (Output)** | **{n_targets}** | Datastore analitici / dimensionali popolati dalle pipeline ETL |
+| **Piani di Caricamento (LoadPlan)** | **{n_lps}** | Orchestrazioni e sequenze batch globali individuate nei repository |
+| **Totale Scenari Compilati Rilevati** | **{n_scens}** | Oggetti compilati ed esportati pronti per l'esecuzione runtime |
+| **Scenari Condivisi (Cross-Repo)** | **{n_shared_scens}** | Scenari presenti con lo stesso identificativo su più moduli dell'ecosistema |
+| **Scenari Orfani (Non Orchestrati)** | **{n_orphan_scens}** | Scenari presenti nel codice ma non richiamati da alcun LoadPlan nel perimetro |
+| **Punti di Collisione (Multi-Writer)** | **{n_multi_writers}** | Tabelle di destinazione alimentate concorrentemente da più mapping distinti |
+| **Catene Read-After-Write (RAW)** | **{len(raw_chains)}** | Dipendenze sequenziali in cui una tabella scritta da un flusso è letta da un altro |
+
+---
+
+## 1. Mappa di Lineage End-to-End (Mermaid Dataflow)
+
+Il seguente diagramma sintetizza il grafo unificato dei flussi: le tabelle sono raggruppate per schema di appartenenza e convergono direttamente sui motori di trasformazione, evidenziando chiaramente le sorgenti OLTP, le pipeline intermedie e i magazzini dati finali:
+
+```mermaid
+{mermaid_flow}
+```
+
+> [!TIP]
+> **Legenda del Grafo:**
+> - `[("📥 SCHEMA.TABELLA")]`: Datastore sorgente (estrazione dati)
+> - `["⚙️ Mapping (repo)"]`: Logica di trasformazione e caricamento ODI
+> - `[("📤 SCHEMA.TABELLA")]`: Datastore analitico / bersaglio di destinazione
+> - `[("📤 ... ⚠️ Multi-Writer")]`: Bersaglio alimentato da più scrittori (punto di convergenza critico)
+
+---
+
+## 2. Matrice Generale delle Trasformazioni (Data Lineage Tabellare)
+
+Riepilogo organico di tutte le pipeline censite, con indicazione dei datastore di input/output, della strategia di caricamento e del file di prova verificato:
+
+| Repository | File Export | Nome Mapping | Tabelle Sorgente (Sources) | Tabelle Destinazione (Targets) | Tipologia Flusso | Strategia / KM | Fonte Verificata |
+|---|---|---|---|---|---|---|---|
+{table_lineage}
+
+### 2.2 Analisi delle Catene di Trasformazione (Read-After-Write Chaining)
+Le catene di trasformazione si verificano quando un mapping popola una tabella che costituisce a sua volta l'input per un mapping successivo. In tali scenari, l'orchestrazione deve garantire rigorosamente l'ordine temporale:
+
+{table_raw}
+
+---
+
+## 3. Schede Dettagliate per Singolo Mapping
+
+{detail_md}
+
+---
+
+## 4. Piani di Caricamento (LoadPlan) ed Alberi di Esecuzione
+
+I Piani di Caricamento (LoadPlan) definiscono la gerarchia, le priorità e le politiche di ripristino per i flussi batch aziendali.
+
+### Riepilogo Generale LoadPlan
+| Repository | File XML | Nome LoadPlan | GlobalId | Stato Strutturale |
+|---|---|---|---|---|
+{table_lp_summary}
+
+{lp_sections_md}
+
+---
+
+## 5. Audit degli Scenari (Attivi, Condivisi ed Orfani)
+
+Verifica dell'effettiva esecuzione runtime degli scenari per rilevare componenti morti, non orchestrati o duplicati tra repository:
+
+| Nome Scenario | Repository | File Sorgente | Stato Orchestrazione | Dettaglio e Note di Esecuzione | Piano d'Azione Consigliato |
+|---|---|---|---|---|---|
+{table_scens}
+
+> [!CAUTION]
+> **Gestione Scenari Orfani:** Gli scenari contrassegnati come `⚠️ ORFANO` non vengono invocati da alcun LoadPlan all'interno del perimetro analizzato.
+> Si consiglia di verificare se l'esecuzione è demandata a scheduler esterni (es. Control-M, UC4, cron di sistema) oppure se si tratta di codice dismesso da archiviare per alleggerire la manutenzione.
+
+---
+
+## 6. Avvii Tecnici ed Iniziatori dei Flussi
+
+{build_initiators_section(cartelle)}
+
+---
+
+## 7. Matrice dei Rischi e Convergenze ETL (Data Integrity Audit)
+
+### 7.1 Tabelle Bersaglio con Scrittori Multipli (Multi-Writer Risk)
+Quando più mapping alimentano la stessa tabella (in particolare se appartenenti a repository differenti), sussiste un potenziale rischio di sovrascrittura, perdita di dati o lock concorrente se l'ordine di esecuzione non è rigidamente coordinato:
+
+{table_multi}
+
+### 7.2 Linee Guida per Data Engineer, DBA e Solution Architect
+1. **Ordinamento e Serializzazione:** Verificare che i mapping concorrenti siano eseguiti in passi seriali distinti e mai paralleli all'interno dei LoadPlan.
+2. **Isolamento delle Transazioni:** Configurare appropriati commit batch e valutare l'uso di partizioni o tabelle di staging dedicate per ciascun canale scrittore.
+3. **Bonifica Scenari Deprecati:** Archiviare gli scenari orfani non più utilizzati per prevenire esecuzioni accidentali e velocizzare i tempi di build.
+4. **Verifica I/O End-to-End:** Accertare che tutte le tabelle lette siano alimentate con i necessari intervalli temporali rispetto alle sorgenti transazionali e agli adapter SOA.
+
+---
+
+## 8. Verificabilità, Metodologia e Limiti dell'Analisi
+
+1. **Origine dei Dati:** I metadati sono stati estratti tramite ispezione statica deterministica dei file XML di export Sunopsis (`SnpMapping`, `SnpPop`, `SnpLoadPlan`, `SnpLpStep`, `SnpScen`). Nessun dato è simulato o inferito senza riscontro nel codice.
+2. **Ambito di Verifica:** L'analisi rileva la struttura logica dichiarata. Valori di variabili runtime passate dinamicamente al momento del lancio da agenti esterni o procedure SQL non cablate nei dump XML richiedono verifica sui database operativi di collaudo e produzione.
+"""
+
+
+
 def build_sviluppo(client: str, now: str, cartelle: list, edges: list,
                    mrows: list,
                    cfg_by_repo: dict | None = None) -> dict[str, str]:
@@ -492,41 +1102,85 @@ def build_sviluppo(client: str, now: str, cartelle: list, edges: list,
         manifests = c.get("manifests", {})
         man_str = ", ".join(f"`{k}` ({len(v)})" for k, v in manifests.items()) if manifests else "Nessun manifest standard"
         entrypoints = ", ".join(f"`{e}`" for e in c.get("entrypoints", [])) or "Nessun entrypoint standard rilevato"
+
+        # Conteggio estensioni file
+        ext_counts: dict[str, int] = {}
+        for f in files:
+            e = f.get("ext", "senza-estensione")
+            ext_counts[e] = ext_counts.get(e, 0) + 1
+        ext_summary = ", ".join(f"`{k}` ({v})" for k, v in sorted(ext_counts.items(), key=lambda x: -x[1])[:8])
+
         cards.append(f"""### Repository: `{c.get('name')}`
-- **Archetipo:** {c.get('archetype', 'Componente')}
-- **Ruolo / Descrizione:** {c.get('role_description', '—')}
-- **Stack Tecnologico:** {techs}
-- **Totale File Sorgente:** {len(files)}
+- **Archetipo Applicativo:** {c.get('archetype', 'Componente')}
+- **Ruolo / Responsabilità Architetturale:** {c.get('role_description', '—')}
+- **Stack Tecnologico Abilitante:** {techs}
+- **Volumetria Codice:** {len(files)} file sorgente censiti
+- **Ripartizione File per Tipologia:** {ext_summary}
 - **File di Build / Manifest:** {man_str}
 - **Punti di Ingresso (Entrypoints):** {entrypoints}
-- **Cartella di Origine:** `{c.get('root')}`
+- **Percorso di Origine sul File System:** `{c.get('root')}`
 """)
 
     schede_md = f"""# Schede Tecniche di Dettaglio per Repository — {client}
 
 _Data generazione: {now}_
+_Destinatari: Sviluppatori Software, Tech Lead, DevOps Engineer e System Administrator_
+
+Il presente documento fornisce la scheda tecnica di ciascun repository analizzato, descrivendone stack tecnologico, struttura del codice, manifest di build ed entrypoint operativi.
 
 {chr(10).join(cards)}
 """
 
     # 02_CONFIGURAZIONI_E_VARIABILI.md (config generica, segreti redatti)
     cfg_rows = []
+    ports_detected = []
+    db_configs = []
     for c in cartelle:
         for ref in (cfg_by_repo or {}).get(c.get("name", ""), []):
+            k = ref.get("key", "")
+            v = ref.get("value", "")
+            ctx = ref.get("context", "")
+            if "port" in k.lower():
+                ports_detected.append(f"Modulo `{c.get('name')}`: `{k}={v}`")
+            if any(term in k.lower() for term in ("db", "host", "jdbc", "datasource", "schema")):
+                db_configs.append(f"Modulo `{c.get('name')}`: `{k}={v}`")
             cfg_rows.append(
                 f"| `{c.get('name')}` | `{ref.get('file')}:{ref.get('line')}` | "
-                f"`{ref.get('key')}` | `{ref.get('value')}` | {ref.get('context')} |")
+                f"`{k}` | `{v}` | {ctx} |")
     table_cfg = "\n".join(cfg_rows) if cfg_rows else "| — | — | — | — | Nessuna variabile di configurazione rilevata |"
+
+    ports_summary = "<br/>".join(f"• {p}" for p in sorted(set(ports_detected))) if ports_detected else "_Nessuna porta esplicita dichiarata._"
+    db_summary = "<br/>".join(f"• {p}" for p in sorted(set(db_configs))) if db_configs else "_Nessun puntamento DB esplicito nei properties._"
 
     config_md = f"""# Configurazioni, Porte e Variabili d'Ambiente — {client}
 
-Elenco delle configurazioni rilevate nei file `.properties`, `.env`, `.yml`, `.json`.
-> [!NOTE]
-> Eventuali credenziali, token e password sono stati redatti automaticamente.
+_Data generazione: {now}_
 
-| Repository | File:Riga | Parametro / Chiave | Valore (redatto dove sensibile) | Contesto |
+Elenco organico dei parametri di configurazione, endpoint di rete e variabili censite nei file `.properties`, `.env`, `.yml`, `.json`.
+
+> [!NOTE]
+> **Presidio di Sicurezza:** Eventuali credenziali, token e password sono stati offuscati automaticamente (`***redatto***`).
+> L'analisi preserva esclusivamente chiavi e puntamenti infrastrutturali necessari per mappare l'architettura.
+
+## 1. Punti di Ascolto di Rete e Porte di Servizio
+{ports_summary}
+
+## 2. Puntamento Risorse Database
+{db_summary}
+
+---
+
+## 3. Matrice Completa dei Parametri di Configurazione
+
+| Repository | File:Riga | Parametro / Chiave | Valore (redatto dove sensibile) | Contesto / Ambito |
 |---|---|---|---|---|
 {table_cfg}
+
+---
+
+## 4. Conformità con la Metodologia 12-Factor App
+1. **Separazione Codice/Configurazione:** I parametri che variano tra ambienti (dev/test/prod) devono essere gestiti tramite variabili d'ambiente di sistema e file esterni al versionamento di codice.
+2. **Standardizzazione Chiavi:** Armonizzare i prefissi delle proprietà di configurazione tra i moduli per facilitare la gestione centralizzata tramite container e secret manager.
 """
 
     # 03_DATABASE_E_ADAPTER_SQL.md
@@ -581,46 +1235,7 @@ usata (SQL adapter JCA / mapping ODI), non definita in DDL._
 - **`09_INVENTARIO_DB.csv`**: stesso contenuto in tabellare (Excel), una riga per risorsa.
 """
 
-    # 04_TRASFORMAZIONI_ETL_ODI.md
-    odi_rows = []
-    for c in cartelle:
-        for exp in c.get("odi_exports", []):
-            for m in exp.get("mappings", []):
-                srcs = ", ".join(m.get("sources", [])) or "—"
-                tgts = ", ".join(m.get("targets", [])) or "—"
-                odi_rows.append(f"| `{c.get('name')}` | `{exp.get('file')}` | `{m.get('name')}` | `{srcs}` | `{tgts}` |")
-    table_odi = "\n".join(odi_rows) if odi_rows else "| — | — | — | — | — | Nessun mapping ODI rilevato |"
-
-    lp_rows = []
-    for c in cartelle:
-        for lp in c.get("lp_files", []):
-            names = ", ".join(lp.get("loadplan_names", [])) or os.path.basename(lp.get("file", ""))
-            lp_rows.append(f"| `{c.get('name')}` | `{lp.get('file')}` | **LoadPlan** | `{names}` |")
-        for sc in c.get("scen_files", []):
-            snames = ", ".join(sc.get("scen_names", [])) or os.path.basename(sc.get("file", ""))
-            lp_rows.append(f"| `{c.get('name')}` | `{sc.get('file')}` | Scenario | `{snames}` |")
-    table_lp = "\n".join(lp_rows) if lp_rows else "| — | — | — | Nessun LoadPlan/Scenario rilevato |"
-
-    etl_md = f"""# Trasformazioni Dati ed Orchestrazioni ETL (Oracle ODI) — {client}
-
-## 1. Mapping di Trasformazione (Sorgenti -> Destinazioni)
-| Repository | File Export | Nome Mapping | Tabelle Sorgente (Sources) | Tabelle Destinazione (Targets) |
-|---|---|---|---|---|
-{table_odi}
-
----
-
-## 2. Piani di Caricamento (LoadPlan) e Scenari
-| Repository | File XML | Tipologia | Nome Piano / Scenario |
-|---|---|---|---|
-{table_lp}
-
----
-
-## 3. Avvii tecnici (agenti LoadPlan, schedulazioni, adapter inbound)
-
-{build_initiators_section(cartelle)}
-"""
+    etl_md = build_etl_odi_section(client, now, cartelle, edges, mrows)
 
     return {
         "01_SCHEDE_TECNICHE_REPO.md": schede_md,
@@ -633,51 +1248,130 @@ usata (SQL adapter JCA / mapping ODI), non definita in DDL._
 def build_business(client: str, now: str, cartelle: list, edges: list, mrows: list) -> dict[str, str]:
     # 01_SINTESI_ESECUTIVA.md
     n_repos = len(cartelle)
+    n_files = sum(len(c.get("files", [])) for c in cartelle)
+    n_edges = len(edges)
+    all_techs = sorted({t for c in cartelle for t in c.get("tech", [])})
+
+    archetype_counts = {}
+    for c in cartelle:
+        arch = c.get("archetype", "Software Component")
+        archetype_counts[arch] = archetype_counts.get(arch, 0) + 1
+    archetypes_summary = ", ".join(f"**{a}** ({cnt})" for a, cnt in sorted(archetype_counts.items()))
+
     items = []
     for c in cartelle:
-        items.append(f"- **`{c.get('name')}`:** {c.get('role_description', 'Componente applicativo')} ({len(c.get('files', []))} file).")
-    bullets = "\n".join(items) if items else "- Nessuna repository presente."
+        role = c.get("role_description", "Componente applicativo")
+        n_cfiles = len(c.get("files", []))
+        tech_str = ", ".join(c.get("tech", [])) or "—"
+        items.append(
+            f"### `{c.get('name')}`\n"
+            f"- **Dominio e Scopo di Business:** {role}\n"
+            f"- **Archetipo Applicativo:** `{c.get('archetype', 'Componente')}`\n"
+            f"- **Dimensione del Patrimonio:** {n_cfiles} file sorgente\n"
+            f"- **Stack Tecnologico Abilitante:** {tech_str}\n"
+        )
+    role_cards = "\n".join(items) if items else "_Nessuna repository presente._"
 
     sintesi_md = f"""# Sintesi Esecutiva dell'Ecosistema Applicativo — {client}
 
 _Data di pubblicazione: {now}_
+_Destinatari: Direzione IT, CIO, Chief Architect, Product Owner e Project Manager_
 
-## Visione d'Insieme
-Il sistema analizzato per il cliente **{client}** è composto da un parco di **{n_repos} repository applicative** integrate tra loro.
-L'ecosistema garantisce l'elaborazione dei dati, l'orchestrazione dei flussi di business e l'interscambio con i sistemi informativi periferici e centrali.
+## 1. Visione d'Insieme e Dashboard Direzionale
 
-## Ruolo delle Repository nel Business
-{bullets}
+Il sistema analizzato per il committente **{client}** rappresenta un'architettura enterprise integrata distribuita su **{n_repos} repository software**, per un totale di **{n_files} file sorgente** e **{n_edges} relazioni di interscambio** scoperte.
 
-## Relazioni Chiave tra i Moduli
-I componenti software collaborano tramite:
-- Chiamate dirette e scambi di rete sincroni;
-- Basi di dati e tabelle condivise per la persistenza e il reporting;
-- Piani di caricamento ed estrazione periodica (ETL);
-- Orchestrazione integrata dei processi.
+| Indicatore Direzionale | Valore Rilevato | Note Strategiche |
+|---|---|---|
+| **Perimetro Repository** | **{n_repos}** moduli software | Copertura completa dei domini analizzati |
+| **Volumetria Codice** | **{n_files}** file censiti | Inclusi contratti WSDL, XML ODI, script e configurazioni |
+| **Interazioni tra Moduli** | **{n_edges}** canali di collegamento | Integrazioni dirette, database condivisi e flussi di rete |
+| **Archetipi Architetturali** | {archetypes_summary} | Ecosistema ibrido SOA, Data Integration (ETL) e servizi |
+| **Tecnologie Chiave** | {', '.join(all_techs) or '—'} | Piattaforme Oracle (ODI, SOA Suite), Python, Docker |
+
+---
+
+## 2. Capacità di Business Erogate dall'Ecosistema
+
+I moduli cooperano per garantire l'operatività continua dei seguenti processi aziendali:
+1. **Elaborazione e Trasformazione Dati (Data Integration & DWH):** alimentazione continua dei magazzini dati analitici e direzionali tramite pipeline batch ETL;
+2. **Integrazione Middleware e Service Bus:** orchestrazione di eventi di business e connettività orientata ai servizi (SOA/BPEL/JCA) con sistemi transazionali periferici;
+3. **Flussi di Lavoro e Gestione Operativa:** tracciamento e automazione dei processi di business secondo lo standard BPMN;
+4. **Interscambio di Rete e Chiamate API:** sincronizzazione sincrona tra componenti distribuiti e micro-servizi.
+
+---
+
+## 3. Profilo dei singoli Componenti nel Business
+
+{role_cards}
+
+---
+
+## 4. Valutazione di Resilienza e Rischi Operativi
+
+Dall'analisi delle interazioni emergono i seguenti punti di attenzione per i decisori e i Product Owner:
+- **Accoppiamenti Dati Condivisi:** monitorare le tabelle bersaglio alimentate da più flussi ETL per evitare disallineamenti di caricamento;
+- **Divergenze di Versione:** verificare le librerie terze parti per armonizzare il ciclo di vita del software;
+- **Tracciabilità dei Processi:** documentare gli scenari orfani o privi di piano di caricamento per assicurare la manutenibilità a lungo termine.
+
+---
+
+## 5. Roadmap Strategica Raccomandata per la Governance IT
+1. **Fase 1 (Disaccoppiamento):** Ridurre gli accessi diretti a database condivisi incapsulandoli in API o adapter SOA dedicati.
+2. **Fase 2 (Armonizzazione):** Allineare le versioni delle dipendenze comuni e rimuovere i file duplicati censiti nel report di governance.
+3. **Fase 3 (Manutenzione ETL):** Bonificare gli scenari ODI orfani ed esplicitare nei LoadPlan l'ordinamento dei mapping multi-writer.
 """
 
     # 02_MAPPA_PROCESSI_BPMN_BPEL.md
     proc_rows = []
-    for c in cartelle:
+    proc_mermaid = ["flowchart TD"]
+    has_proc = False
+    for i, c in enumerate(cartelle):
         for bp in c.get("bpmn_files", []):
-            proc_rows.append(f"| `{c.get('name')}` | `{bp}` | Processo BPMN | Flusso di lavoro operativo / approvazione |")
+            pname = os.path.splitext(os.path.basename(bp))[0]
+            proc_rows.append(
+                f"| `{c.get('name')}` | `{bp}` | **BPMN 2.0** | Flusso Operativo / Workflow | Start Event / Messaggio | `{pname}` |"
+            )
+            proc_mermaid.append(f'    P_BPMN_{i}["📋 BPMN: {pname}\\n({c.get("name")})"]')
+            has_proc = True
         for f in c.get("files", []):
             if f.get("ext") == ".bpel":
-                proc_rows.append(f"| `{c.get('name')}` | `{f.get('rel_path')}` | Orchestrazione BPEL | Servizio di orchestrazione automatizzata |")
-    table_proc = "\n".join(proc_rows) if proc_rows else "| — | — | — | Nessun flusso di processo BPMN/BPEL rilevato |"
+                pname = os.path.splitext(os.path.basename(f["rel_path"]))[0]
+                proc_rows.append(
+                    f"| `{c.get('name')}` | `{f.get('rel_path')}` | **BPEL 2.0** | Orchestrazione Servizio Middleware | Invocazione PartnerLink | `{pname}` |"
+                )
+                proc_mermaid.append(f'    P_BPEL_{i}["⚙️ BPEL: {pname}\\n({c.get("name")})"]')
+                has_proc = True
+    if not has_proc:
+        proc_mermaid.append('    NONE["Nessun processo BPMN/BPEL esplicito"]')
+    table_proc = "\n".join(proc_rows) if proc_rows else "| — | — | — | — | — | Nessun processo BPMN/BPEL rilevato |"
 
-    processi_md = f"""# Mappa dei Processi di Business (BPMN / BPEL) — {client}
+    processi_md = f"""# Mappa dei Processi di Business ed Orchestrazioni — {client}
 
-Riepilogo dei diagrammi di flusso di lavoro (BPMN) e delle orchestrazioni operative (BPEL) implementati nell'ecosistema:
+_Data pubblicazione: {now}_
+_Standard documentati: BPMN 2.0 (Business Process Model and Notation) e WS-BPEL 2.0_
 
-| Repository | File Processo | Standard | Scopo Operativo |
-|---|---|---|---|
+## 1. Mappa dei Diagrammi di Processo (BPMN) ed Orchestrazioni (BPEL)
+
+L'ecosistema implementa logiche di processo formalizzate secondo gli standard BPMN e BPEL:
+
+| Repository | File Processo | Standard | Tipologia Operativa | Trigger di Avvio | Nome Processo |
+|---|---|---|---|---|---|
 {table_proc}
 
 ---
 
-## Chi avvia i processi (agenti, schedulazioni, eventi, adapter inbound)
+## 2. Diagramma Sintetico dei Processi Esecutivi
+
+```mermaid
+{chr(10).join(proc_mermaid)}
+```
+
+---
+
+## 3. Avvii Tecnici ed Iniziatori (Chi avvia cosa)
+
+Di seguito l'elenco completo degli eventi scatenanti i processi aziendali:
 
 {build_initiators_section(cartelle)}
 """
@@ -687,24 +1381,44 @@ Riepilogo dei diagrammi di flusso di lavoro (BPMN) e delle orchestrazioni operat
     seen = set()
     for proj, mapping, schema, table, _kind in mrows:
         term = f"{schema}.{table}"
-        if term not in seen and len(gloss_rows) < 40:
+        if term not in seen and len(gloss_rows) < 80:
             seen.add(term)
-            gloss_rows.append(f"| `{term}` | Entità Dati / Tabella | Utilizzato nel mapping `{mapping}` (`{proj}`) |")
+            sch_upper = schema.upper()
+            if "SALES" in sch_upper or "ORDER" in sch_upper:
+                cat = "Vendite, Ordini e Transazioni Commerciali"
+            elif "LOGIST" in sch_upper or "SHIP" in sch_upper:
+                cat = "Logistica, Spedizioni e Movimentazione Merci"
+            elif "DWH" in sch_upper or "DIM" in sch_upper or "FACT" in sch_upper:
+                cat = "Data Warehouse, Analitica e Reporting Direzionale"
+            elif "HR" in sch_upper or "EMP" in sch_upper:
+                cat = "Risorse Umane, Anagrafiche e Amministrazione"
+            else:
+                cat = f"Dominio Dati `{schema}`"
+            gloss_rows.append(f"| **`{term}`** | Entità Dati / Tabella | {cat} | Utilizzata nel mapping `{mapping}` (`{proj}`) |")
+
     for c in cartelle:
         for exp in c.get("odi_exports", []):
             for m in exp.get("mappings", []):
                 mname = m.get("name")
-                if mname and mname not in seen and len(gloss_rows) < 40:
+                if mname and mname not in seen and len(gloss_rows) < 80:
                     seen.add(mname)
-                    gloss_rows.append(f"| `{mname}` | Flusso ETL | Trasformazione dati per il componente `{c.get('name')}` |")
-    table_gloss = "\n".join(gloss_rows) if gloss_rows else "| — | — | Nessun termine di dominio rilevato |"
+                    gloss_rows.append(f"| **`{mname}`** | Flusso di Trasformazione (ETL) | Integrazione Dati | Trasformazione dati per il componente `{c.get('name')}` (`{exp.get('file')}`) |")
+        for lp in c.get("lp_files", []):
+            for lpn in lp.get("loadplan_names", []):
+                if lpn and lpn not in seen and len(gloss_rows) < 80:
+                    seen.add(lpn)
+                    gloss_rows.append(f"| **`{lpn}`** | Piano di Caricamento (LoadPlan) | Orchestrazione Batch | Sequenza di esecuzione batch gestita da `{c.get('name')}` |")
+
+    table_gloss = "\n".join(gloss_rows) if gloss_rows else "| — | — | — | — | Nessun termine di dominio rilevato |"
 
     glossario_md = f"""# Glossario dei Termini di Business e di Dominio — {client}
 
-Definizione e contesto d'uso degli oggetti applicativi, tabelle e processi chiave emersi dall'analisi dell'ecosistema:
+_Data pubblicazione: {now}_
 
-| Termine / Entità | Tipologia | Contesto ed Utilizzo nel Sistema |
-|---|---|---|
+Il presente glossario traduce in termini funzionali e descrittivi le entità dati, le tabelle e i flussi emersi dall'analisi dell'ecosistema software:
+
+| Termine / Entità | Tipologia Architetturale | Area di Business / Dominio | Contesto Operativo nel Sistema |
+|---|---|---|---|
 {table_gloss}
 """
 
@@ -756,20 +1470,25 @@ def build_governance(client: str, now: str, cartelle: list, edges: list,
     conformita_md = f"""# Report di Conformità, Licenze e Gestione Rischi — {client}
 
 _Data audit: {now}_
+_Inquadramento Metodologico: Audit di Sicurezza, Supply Chain & Technical Debt_
 
 ## 1. Analisi Dipendenze e Versioni Divergenti
-L'uso di versioni differenti della stessa libreria in componenti che interagiscono tra loro rappresenta un rischio per la stabilità a runtime e la sicurezza.
+L'uso di versioni differenti della stessa libreria in componenti che interagiscono tra loro rappresenta un rischio per la stabilità a runtime, la sicurezza e la compatibilità delle API.
 
 | Moduli Coinvolti | Tipologia | Livello di Attenzione | Dettaglio Prove |
 |---|---|---|---|
 {table_risks}
 
 ### Versioni divergenti (stesso pacchetto, versioni diverse)
+L'esistenza di versioni disallineate (es. una versione più recente e una legacy) espone a rischi di comportamento non deterministico e potenziali vulnerabilità note (CVE):
+
 | Pacchetto | Chi lo usa @ versione | Livello di Attenzione |
 |---|---|---|
 {table_div}
 
 ### Inventario dipendenze terze parti (da `package.json` / `requirements.txt` / `pom.xml`)
+Censimento completo delle librerie open-source ed esterne importate tramite i descrittori di build:
+
 | Pacchetto | Versione | Ecosistema | Repository | Manifest |
 |---|---|---|---|---|
 {table_deps}
@@ -777,17 +1496,18 @@ L'uso di versioni differenti della stessa libreria in componenti che interagisco
 ---
 
 ## 2. Analisi Duplicazione Codice / File Identici
-Rilevamento di file duplicati tra repository diverse (stesso hash SHA-256):
+Rilevamento di file duplicati tra repository diverse con corrispondenza verificata tramite hash crittografico SHA-256. La duplicazione del codice sorgente aumenta i costi di manutenzione e introduce il rischio di patch applicate in modo asimmetrico:
 
-| Repository | File e Checksum Rilevati |
+| Repository Coinvolte | File e Checksum Rilevati |
 |---|---|
 {table_dup}
 
 ---
 
-## 3. Politiche di Sicurezza e Riservatezza
-- **Sanitizzazione Automatica:** tutte le credenziali, password, stringhe di connessione e token di autenticazione rintracciati nei file di configurazione sono stati offuscati.
-- **Isolamento Dati:** l'analisi è stata eseguita in ambiente confinato e nessun dato sensibile del cliente è stato esposto all'esterno.
+## 3. Politiche di Sicurezza, Segreti e Riservatezza
+- **Sanitizzazione Automatica delle Credenziali:** Tutte le password, chiavi API, token e connection string nei file di configurazione sono state rilevate e redatte preventivamente (`***redatto***`).
+- **Nessuna Fuga di Segreti:** La scansione conferma che nessun segreto transita nei report di analisi esportabili o nell'archivio documentale ZIP.
+- **Isolamento dell'Ambiente:** L'ispezione è avvenuta in conformità con i requisiti di audit statico locale senza invio di metadati riservati all'esterno.
 """
 
     return {

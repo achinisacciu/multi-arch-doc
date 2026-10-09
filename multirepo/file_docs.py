@@ -518,31 +518,88 @@ def contract_markdown(info: dict, rel: str, kind: str) -> str:
 # --- ODI inventario (istantaneo, da sniff: copre OGNI export) ------------------
 
 def odi_inventory_markdown(exp: dict) -> str:
-    """Scheda inventario per un export ODI (mapping/LP/scenari dai Field sniffati).
-
-    Istantanea e sempre disponibile: garantisce la doc per-file anche quando
-    il parser full ODI e' skippato (fast mode) o fuori budget.
-    """
+    """Scheda inventario approfondita per un export ODI (mapping/LP/scenari con diagramma)."""
     rel = exp.get("file", "?")
-    out = [f"# ODI (inventario) — `{rel}`", ""]
+    out = [
+        f"# Scheda Descrittiva ODI — `{rel}`",
+        "",
+        f"_File analizzato: `{rel}` · Origine: Ispezione statica SunopsisExport XML_",
+        "",
+    ]
     maps = exp.get("mappings", [])
     if maps:
-        out += ["## Mapping rilevati", "",
-                "| Mapping | Sorgenti | Destinazioni |",
-                "|---|---|---|"]
+        out += [
+            "## 1. Mapping di Trasformazione Rilevati",
+            "",
+            "| Mapping | Tabelle Sorgente (IN) | Tabelle Destinazione (OUT) | Tipologia Flusso | Strategia / KM |",
+            "|---|---|---|---|---|",
+        ]
         for m in maps:
-            srcs = ", ".join(f"`{s}`" for s in m.get("sources", [])) or "—"
-            tgts = ", ".join(f"`{t}`" for t in m.get("targets", [])) or "—"
-            out += [f"| `{m.get('name', '?')}` | {srcs} | {tgts} |"]
-        out += [""]
+            srcs = "<br/>".join(f"`{s}`" for s in m.get("sources", [])) or "—"
+            tgts = "<br/>".join(f"`{t}`" for t in m.get("targets", [])) or "—"
+            targets_list = m.get("targets", [])
+            if any("FACT" in t.upper() or "F_" in t.upper() for t in targets_list):
+                flow_type = "Caricamento Fatti (Fact DWH)"
+            elif any("DIM" in t.upper() or "D_" in t.upper() for t in targets_list):
+                flow_type = "Caricamento Dimensioni (Dim DWH)"
+            elif any("STG" in t.upper() or "STAGE" in t.upper() or "TMP" in t.upper() for t in targets_list):
+                flow_type = "Staging / Ingestion"
+            else:
+                flow_type = "Trasformazione Dati Standard"
+            km = m.get("ikm") or "IKM / Control Append"
+            out += [f"| **`{m.get('name', '?')}`** | {srcs} | {tgts} | {flow_type} | {km} |"]
+
+        out += ["", "## 2. Diagramma di Flusso Lineage Dati", "```mermaid", "flowchart LR"]
+        table_nodes = {}
+        for i, m in enumerate(maps):
+            m_id = f"MAP_{i}"
+            m_label = m.get("name", "Mapping")
+            out.append(f'    {m_id}["⚙️ {m_label}"]')
+            for s in m.get("sources", []):
+                s_id = table_nodes.setdefault(s, f"TBL_{len(table_nodes)}")
+                out.append(f'    {s_id}[("📥 {s}")] --> {m_id}')
+            for t in m.get("targets", []):
+                t_id = table_nodes.setdefault(t, f"TBL_{len(table_nodes)}")
+                out.append(f'    {m_id} --> {t_id}[("📤 {t}")]')
+        if not table_nodes:
+            out.append(f'    NODE["{rel}"]')
+        out += ["```", ""]
+
+        out += ["## 3. Dettaglio Tecnico delle Operazioni I/O per Mapping", ""]
+        for m in maps:
+            out.append(f"### Mapping: `{m.get('name', '?')}`")
+            if m.get("description"):
+                out.append(f"- **Descrizione Funzionale:** {m['description']}")
+            if m.get("ikm"):
+                out.append(f"- **IKM (Integration Knowledge Module):** `{m['ikm']}`")
+            if m.get("lkm"):
+                out.append(f"- **LKM (Loading Knowledge Module):** `{m['lkm']}`")
+            if m.get("integration_type"):
+                out.append(f"- **Modalità Integrazione:** `{m['integration_type']}`")
+            if m.get("truncate_target"):
+                out.append(f"- **Truncate Target:** `{m['truncate_target']}`")
+
+            out.append("")
+            out.append("| Direzione | Datastore / Tabella | Ruolo Operativo |")
+            out.append("|---|---|---|")
+            for s in m.get("sources", []):
+                out.append(f"| INPUT | `{s}` | Lettura Sorgente (Extraction) |")
+            for t in m.get("targets", []):
+                out.append(f"| OUTPUT | `{t}` | Scrittura Bersaglio (Target Load) |")
+            out.append("")
+
     if exp.get("loadplan_names"):
-        out += ["## LoadPlan",
+        out += ["## 4. Piani di Caricamento (LoadPlan)",
                 ", ".join(f"`{n}`" for n in exp["loadplan_names"]), ""]
     if exp.get("scen_names"):
-        out += ["## Scenari",
+        out += ["## 5. Scenari Compilati",
                 ", ".join(f"`{n}`" for n in exp["scen_names"]), ""]
-    out += ["_Scheda inventario da sniff Field (Name/SourceTable/TargetTable). "
-            "Per TECNICO/BUSINESS/FLUSSO/CSV vedi doc full ODI, se generata._", ""]
+
+    out += [
+        "---",
+        "_Documentazione tecnica generata dall'analisi strutturata del repository ODI SunopsisExport._",
+        "",
+    ]
     return "\n".join(out)
 
 

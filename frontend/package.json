@@ -3,11 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Frontend minimale (Vite + vanilla JS) per Client Dossier",
+  "description": "Frontend per Client Dossier Studio",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview --port 4173"
+    "preview": "vite preview --port 3000 --host 0.0.0.0"
+  },
+  "dependencies": {
+    "vite": "^6.0.0"
   },
   "devDependencies": {
     "vite": "^6.0.0"

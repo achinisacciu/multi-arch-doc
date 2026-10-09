@@ -58,8 +58,9 @@ export function backendPlugin({ port = 8091, apiWant = 6 } = {}) {
         );
         return; // non ne avvio un secondo sulla stessa porta
       }
-      const python = process.env.PYTHON || "python";
-      child = spawn(python, [SERVER, "--port", String(port)], { stdio: "inherit" });
+      const python = process.env.PYTHON || "python3";
+      const rootDir = path.resolve(here, "..");
+      child = spawn(python, [SERVER, "--port", String(port)], { stdio: "inherit", cwd: rootDir });
       child.on("exit", (code) => {
         child = null;
         if (code) server.config.logger.error(`server.py uscito con codice ${code}`, { timestamp: true });

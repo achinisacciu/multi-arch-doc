@@ -65,10 +65,12 @@ WINDOWS_RESERVED = frozenset(
 def list_dirs(path: str | None) -> dict:
     if not path:
         roots = [f"{c}:\\" for c in "CDEFGH" if os.path.isdir(f"{c}:\\")]
-        home = os.path.expanduser("~")
-        if home not in roots:
-            roots.append(home)
+        for p in [ROOT, os.path.expanduser("~")]:
+            if p and p not in roots and os.path.isdir(p):
+                roots.append(p)
         return {"path": "", "parent": "", "dirs": sorted(roots)}
+    if not os.path.isabs(path):
+        path = os.path.join(ROOT, path)
     path = os.path.abspath(path)
     try:
         entries = sorted(
@@ -525,10 +527,11 @@ class Handler(BaseHTTPRequestHandler):
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Backend locale Client Dossier (stdlib).")
+    p.add_argument("--host", default="127.0.0.1", help="Host da ascoltare (default 127.0.0.1)")
     p.add_argument("--port", type=int, default=8091)
     args = p.parse_args(argv)
-    srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    print(f"Client Dossier su http://127.0.0.1:{args.port} (Ctrl+C per fermare)")
+    srv = ThreadingHTTPServer((args.host, args.port), Handler)
+    print(f"Client Dossier su http://{args.host}:{args.port} (Ctrl+C per fermare)")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
